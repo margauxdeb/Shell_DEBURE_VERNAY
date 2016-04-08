@@ -13,8 +13,18 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <dirent.h>
+#include <wait.h>
 
 #define LONGUEUR 2048
+
+/* On stockera dans cette structure toutes les données relatives au Shell, pour les passer facilement
+aux diverses fonctions */
+typedef struct minishell {
+    char**  historique;
+    char    repertoire[LONGUEUR];
+    int     compteurHistorique;
+} Minishell;
+
 
 /* La fonction create_process duplique le processus appelant et retourne
  le PID du processus fils ainsi créé */
@@ -34,10 +44,10 @@ pid_t CreerProcessus()
     return pid;
 }
 
-void InsererHistorique(char *chaine, char **historique, int compteurHistorique)
+void InsererHistorique(char *chaine, Minishell* monShell)
 {
-    historique[compteurHistorique]=(char*)malloc(LONGUEUR*sizeof(char));
-    strcpy(historique[compteurHistorique], chaine);
+    monShell->historique[monShell->compteurHistorique]=(char*)malloc(LONGUEUR*sizeof(char));
+    strcpy(monShell->historique[monShell->compteurHistorique++], chaine);
 }
 
 void CommandeHistory(char **historique, int compteurHistorique)
@@ -95,11 +105,11 @@ void DecouperChaine(char* chaine, char** tabMots)
 	}
 }
 
-void CommandeCD (char **tabMots, char *repertoire)
+void CommandeCD(char **tabMots, char *repertoire)
 {
 	DIR* dt;
 
-	if(tabMots[1]==NULL)
+	if(tabMots[1] == NULL)
 	{
 		strcpy(repertoire, "/");
 	}
@@ -149,71 +159,91 @@ void CommandeCD (char **tabMots, char *repertoire)
 	}
 }
 
+void InterpreterCommande(Minishell* monShell,char** tabMots) {
+
+	pid_t pid;
+
+    if (!strcmp(tabMots[0], "cd"))
+    {
+        CommandeCD(tabMots, monShell->repertoire);
+    }
+    else if (!strcmp(tabMots[0], "history"))
+    {
+        CommandeHistory(monShell->historique, monShell->compteurHistorique);
+    }
+	else if (!strcmp(tabMots[0], "cat"))
+	{
+		CommandeCat(tabMots[1]);
+	}
+	else
+	{
+		pid = CreerProcessus();
+		switch (pid)
+		{
+			//Si on a une erreur irrémédiable (ENOMEM dans notre cas)
+			case -1:
+				perror("fork");
+				return EXIT_FAILURE;
+			break;
+			//Si on est dans le fils
+			case 0:
+				execv(tabMots[0], tabMots);
+				exit(0);
+			break;
+			//  Si on est dans le père
+			default:
+				waitpid(-1, 0, 0);
+			break;
+		}
+	}
+}
+
 
 int main(void)
 {
 	char *chaine;
-	char *repertoire;
+	//char repertoire[LONGUEUR];
+	int nombreMots = 20;
 	char ** tabMots;
-	char ** historique;
-	pid_t pid;
-	int compteurHistorique=0;
+	//char ** historique;
+	//int compteurHistorique=0;
 	int boolExit=0;
 
-	tabMots= (char**)malloc(20*sizeof(char*));
-	repertoire= (char*)malloc(LONGUEUR*sizeof(char));
-	historique= (char**)malloc(20*sizeof(char*));
+    Minishell monShell = {.compteurHistorique = 0};
 
-	strcpy(repertoire, "/");
+    chaine      = (char*) calloc(LONGUEUR,sizeof(char));
+	tabMots     = (char**)malloc(nombreMots*sizeof(char*));
+	//repertoire  = (char*) malloc(LONGUEUR*sizeof(char));
+	monShell.historique  = (char**)malloc(20*sizeof(char*));
+
+	//strcpy(repertoire, "/");
+
+	// Cette fonction fonctionne bien avec une chaine déclarée en statique, mais pas avec un pointeur (comme fait précédemment)
+    getcwd(monShell.repertoire,sizeof(monShell.repertoire));
 
 	while (!feof(stdin)&&(!boolExit))
 	{
-		printf("> [%s]", repertoire);
+		printf("> [%s]", monShell.repertoire);
 		if (SaisirChaine(chaine, LONGUEUR) && (!feof(stdin)))
 		{
-			InsererHistorique(chaine, historique, compteurHistorique);
-			compteurHistorique++;
+			InsererHistorique(chaine, &monShell);
+			//monShell.compteurHistorique++;
 
 			DecouperChaine(chaine, tabMots);
 
 			if (!strcmp(tabMots[0], "exit"))
 				boolExit = 1;
-			else if (!strcmp(tabMots[0], "cd"))
-			{
-				CommandeCD(tabMots, repertoire);
-			}
-			else if (!strcmp(tabMots[0], "history"))
-			{
-				CommandeHistory(historique, compteurHistorique);
-			}
-			else if (!strcmp(tabMots[0], "cat"))
-			{
-				CommandeCat(tabMots[1]);
-			}
-			else
-			{
-				pid = CreerProcessus();
-
-				switch (pid)
-				{
-					//Si on a une erreur irrémédiable (ENOMEM dans notre cas)
-					case -1:
-						perror("fork");
-						return EXIT_FAILURE;
-					break;
-					//Si on est dans le fils
-					case 0:
-						execv(tabMots[0], tabMots);
-						exit(0);
-					break;
-					//  Si on est dans le père
-					default:
-						waitpid(-1, 0, 0);
-					break;
-				}
+			else {
+                InterpreterCommande(&monShell,tabMots);
 			}
 		}
 	}
+
+    free(chaine);
+    free(tabMots);
+    for (int i=0;i<monShell.compteurHistorique;i++)
+        free(monShell.historique[i]);
+    free(monShell.historique);
 
 	return (0);
 }
