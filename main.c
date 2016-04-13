@@ -87,6 +87,25 @@ void adapt(char* s) {
     }
 }
 
+int contains(char c, char* tab, int len) {
+    for (int i=0;i<len;i++) {
+        if (tab[i] == c)
+            return true;
+    }
+    return false;
+}
+
+int fileExists(const char* path) {
+    FILE* f = fopen(path,"r");
+    if (f != NULL) {
+        fclose(f);
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
 int CommandeCP(const char* srcPath, const char* destPath) {
 
     char src_path[200];
@@ -222,18 +241,18 @@ void CommandeCat(char* chaine)
 	}
 }
 
-int DecouperChaine(char* chaine, char** tabMots)
+int DecouperChaine(char* chaine, char** tabMots, char* delimiteurs)
 {
 	char *token;
 	int i=0;
 
 	//Découper la chaîne selon les espaces
-	token = strtok (chaine," ");
+	token = strtok (chaine,delimiteurs);
 
 	while (token != NULL)
 	{
 		tabMots[i]= token;
-		token = strtok (NULL, " ,");
+		token = strtok (NULL, delimiteurs);
 		i++;
 	}
 
@@ -289,11 +308,43 @@ void CommandeTouch(char** args, char* repertoire) {
     }
 }
 
+
+
+void chercherCommande(char* cmd) {
+    char temp[LONGUEUR] = "/usr/bin/";
+    strcat(temp,cmd);
+    strcpy(cmd,temp);
+}
+
+
+void chercherChemin(char* path, Minishell* monShell) {
+
+    char** elems = malloc(64*sizeof(char*));
+    char delem[] = "/";
+    int nb = DecouperChaine(path,elems,delem);
+    if (!strcmp(path,".")) {
+        strcpy(path,monShell->repertoire);
+    }
+    else if (!strcmp(path,"..")) {
+        char temp[LONGUEUR];
+        strcpy(temp,monShell->repertoire);
+        popChemin(temp);
+        strcpy(path,temp);
+    }
+
+    for (int i=1;i<nb;i++) {
+        strcat(path,"/");
+        strcat(path,elems[i]);
+    }
+
+    free(elems);
+
+    printf("absolute_path=%s\n", path);
+}
+
 void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
 
 	pid_t pid;
-
-
 
     if (!strcmp(tabMots[0], "cd"))
     {
@@ -316,6 +367,13 @@ void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
 	}
 	else
 	{
+        if (!contains('/',tabMots[0],strlen(tabMots[0])) && !contains('.',tabMots[0],strlen(tabMots[0]))) {
+            afficherArgs(tabMots);
+            chercherCommande(tabMots[0]);
+            afficherArgs(tabMots);
+        }
+        //chercherChemin(tabMots[1],monShell);
+
         int status;
 		pid = CreerProcessus();
 		switch (pid)
@@ -350,6 +408,8 @@ int main(void)
 	char ** arguments;
 	int boolExit = 0;
 
+	char delimiteurs[] = " ,:;";
+
     Minishell monShell = {.compteurHistorique = 0};
 
     chaine              = (char*) calloc(LONGUEUR,sizeof(char));
@@ -366,7 +426,7 @@ int main(void)
 		if (SaisirChaine(chaine, LONGUEUR) && (!feof(stdin)))
 		{
             InsererHistorique(chaine, &monShell);
-            int argc = DecouperChaine(chaine, tabMots);
+            int argc = DecouperChaine(chaine, tabMots, delimiteurs);
 			if (argc)
 			{
                 arguments = calloc(argc,sizeof(char*));
@@ -385,8 +445,7 @@ int main(void)
 
     free(chaine);
     free(tabMots);
-    for (int
-    i=0;i<monShell.compteurHistorique;i++)
+    for (int i=0;i<monShell.compteurHistorique;i++)
         free(monShell.historique[i]);
     free(monShell.historique);
 
@@ -399,7 +458,7 @@ void afficherArgs(char** tabMots) {
         int i = 0;
         printf("Your arguments :\n");
         while (tabMots[i] != NULL) {
-            printf("\n\t%d : %s(%lu)",i,tabMots[i],strlen(tabMots[i]));
+            printf("\n\t%d : %s(%lu)(p=%d)",i,tabMots[i],strlen(tabMots[i]),&tabMots[i]);
             i++;
         }
         printf("\n");
