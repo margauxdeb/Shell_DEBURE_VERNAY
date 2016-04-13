@@ -15,6 +15,8 @@
 #include <dirent.h>
 #include <wait.h>
 
+#include <fcntl.h>
+#include <sys/stat.h>
 #define true 1
 #define false 0
 
@@ -31,13 +33,13 @@ typedef struct minishell {
 
 
 /* Fonctions à renommer, voire à réviser */
-void showArgs(char**);
-int isDir(char*);
-void popPath(char*);
-char last(char*);
-char first(char*);
-char* setlast(char*);
-char* setfirst(char*);
+void afficherArgs(char**);
+int estRepertoire(char*);
+void popChemin(char*);
+char dernier(char*);
+char premier(char*);
+char* setdernier(char*);
+char* setpremier(char*);
 
 /* La fonction create_process duplique le processus appelant et retourne
  le PID du processus fils ainsi créé */
@@ -74,6 +76,112 @@ void InsererHistorique(char *chaine, Minishell* monShell)
         strcpy(monShell->historique[monShell->compteurHistorique-1], chaine);
         free(temp);
     }
+}
+
+/* Ajoute un '/' à la fin de la chaine */
+void adapt(char* s) {
+    if (s[strlen(s)-1] != '/') {
+        printf("%s",s);
+        strcat(s,"/");
+        printf(" changed to %s\n",s);
+    }
+}
+
+int CommandeCP(const char* srcPath, const char* destPath) {
+
+    char src_path[200];
+    char dest_path[200];
+
+    memcpy(src_path,srcPath,strlen(srcPath)+1);
+    memcpy(dest_path,destPath,strlen(destPath)+1);
+
+    void* buffer = calloc(50,sizeof(void));
+    int src = open(src_path,O_RDONLY);
+    int result = 0;
+
+    if (src != -1)  {
+
+        struct stat buff;
+        fstat(src,&buff);
+        int stm = buff.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
+
+        if (S_ISDIR(buff.st_mode)) {
+            adapt(dest_path);
+            adapt(src_path);
+            DIR* dsrc = opendir(src_path);
+            if (dsrc < 0) {
+                perror("opendir src ");
+            }
+
+            if (mkdir(dest_path,stm) < 0) {
+                fprintf(stderr,"on %s; ",dest_path);
+                perror("dest mkdir ");
+                result = -3;
+            }
+            else {
+                struct dirent* content = readdir(dsrc);
+                int i = 0;
+                while (content != NULL) {
+                    if (i++ > 1) {
+
+                        char tmpd[200];
+                        strcpy(tmpd,dest_path);
+                        char tmps[200];
+                        strcpy(tmps,src_path);
+
+                        strcat(tmps,content->d_name);
+                        strcat(tmpd,content->d_name);
+
+                        DIR* adir = opendir(tmps);
+                        if (adir != NULL) {
+                            strcat(tmps,"/");
+                            strcat(tmpd,"/");
+                        }
+                        closedir(adir);
+                        // RECURSIVE CALL
+                        CommandeCP(tmps,tmpd);
+                    }
+                        content = readdir(dsrc);
+                }
+            }
+            close(src);
+            closedir(dsrc);
+        }
+        else {
+
+            int dest = open(dest_path,O_WRONLY | O_CREAT);
+            int nbbytes;
+            while ((nbbytes = read(src,buffer,50)) != 0) {
+                if (nbbytes < 0) {
+                    if (!(errno == EINTR || errno == EAGAIN)) {
+                        perror("read src ");
+                        result = -5;
+                        break;
+                    }
+                }
+                else if (write(dest,buffer,50) < 0) {
+                   if (!(errno == EINTR || errno == EAGAIN)) {
+                        perror("write dest ");
+                        result = -4;
+                        break;
+                    }
+                }
+            }
+
+            fchmod(dest,stm);
+            close(dest);
+        }
+    }
+    else {
+       result = -2;
+       fprintf(stderr,"%s : ",src_path);
+       perror("");
+    }
+
+    free(buffer);
+    close(src);
+
+    return result;
 }
 
 void CommandeHistory(Minishell* monShell)
@@ -132,95 +240,37 @@ int DecouperChaine(char* chaine, char** tabMots)
 	return i;
 }
 
-/*
-void CommandeCD(char **tabMots, char *repertoire)
-{
-	DIR* dt;
-
-	if(tabMots[1] == NULL)
-	{
-		strcpy(repertoire, "/");
-	}
-	else if(!strcmp(tabMots[1], "../") || !strcmp(tabMots[1], ".."))
-	{
-		if(strcmp(repertoire, "/"))
-		{
-			if(repertoire[strlen(repertoire)-1] == '/')
-				repertoire[strlen(repertoire)-1] = 0;
-			while(repertoire[strlen(repertoire)-1] != '/')
-				repertoire[strlen(repertoire)-1] = 0;
-		}
-	}
-	else if(!strcmp(tabMots[1], ".") || !strcmp(tabMots[1], "./"))
-	{}
-	else if(tabMots[1][0] != '/')
-	{
-		if((repertoire[strlen(repertoire)-1] == '/') && ((dt = opendir(tabMots[1])) != NULL))
-		{
-			strcat(repertoire, tabMots[1]);
-			closedir(dt);
-		}
-	}
-	else
-	{
-		if ((dt = opendir(tabMots[1])) != NULL)
-		{
-			strcat(repertoire, "/");
-			strcat(repertoire, tabMots[1]);
-			closedir(dt);
-		}
-
-		if(repertoire[strlen(repertoire)-1] != '/')
-			strcat(repertoire, "/");
-		else
-		{
-			if((dt = opendir(tabMots[1])) != NULL)
-			{
-				closedir(dt);
-				strcpy(repertoire, tabMots[1]);
-				if(repertoire[strlen(repertoire)-1] != '/')
-					strcat(repertoire, "/");
-			}
-			else
-				printf("%s: not a directory\n", tabMots[1]);
-		}
-	}
-}
-*/
-
 void CommandeCD(char** args, char* repertoire) {
-    /* Création d'un alias */
-    char* path = args[0];
 
-    if (path == NULL) {
+    if (args[1] == NULL) {
         strcpy(repertoire,"/");
     }
     else {
-        if (strlen(path) > 1 && last(path)== '/') {
-            *setlast(path) = 0;
+        if (strlen(args[1]) > 1 && dernier(args[1])== '/') {
+            *setdernier(args[1]) = 1;
         }
-        if (strlen(path) > 1 && first(path) == '/') {
-            *setfirst(path++) = 0;
+        if (strlen(args[1]) > 1 && premier(args[1]) == '/') {
+            *setpremier(args[1]++) = 1;
         }
 
-        if (!strcmp(path,"/")) {
+        if (!strcmp(args[1],"/")) {
             strcpy(repertoire,"/");
         }
-        else if (!strcmp(path,".")){
+        else if (!strcmp(args[1],".")){
 
         }
-        else if (!strcmp(path,"..")) {
-            popPath(repertoire);
+        else if (!strcmp(args[1],"..")) {
+            popChemin(repertoire);
         }
         else  {
             char* temp = calloc(LONGUEUR,sizeof(char));
             strcpy(temp,repertoire);
-            if ( !(!strcmp(repertoire,"/") || last(repertoire) == '/') ) {
+            if ( !(!strcmp(repertoire,"/") || dernier(repertoire) == '/') ) {
                 strcat(temp,"/");
             }
-            strcat(temp,path);
+            strcat(temp,args[1]);
 
-            if (isDir(temp)) {
+            if (estRepertoire(temp)) {
                 strcpy(repertoire,temp);
             }
             else {
@@ -229,35 +279,40 @@ void CommandeCD(char** args, char* repertoire) {
 
             free(temp);
         }
-        printf("cd:path=%s\n",path);
     }
+}
 
+void CommandeTouch(char** args, char* repertoire) {
+    FILE* monFichier;
+    if ((monFichier = fopen(args[1],"a")) != NULL) {
+        fclose(monFichier);
+    }
 }
 
 void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
 
 	pid_t pid;
 
-    printf("argc=%d\n",argc);
-    char** args = calloc(argc,sizeof(char*));
 
-    for (int i=0;i<argc;i++) {
-        args[i] = tabMots[i];
-    }
-    /* Création d'un alias */
-    char* cmd = args[0];
 
-    if (!strcmp(cmd, "cd"))
+    if (!strcmp(tabMots[0], "cd"))
     {
-        CommandeCD(&args[1], monShell->repertoire);
+        CommandeCD(tabMots, monShell->repertoire);
     }
-    else if (!strcmp(cmd, "history"))
+    else if (!strcmp(tabMots[0], "history"))
     {
         CommandeHistory(monShell);
     }
-	else if (!strcmp(cmd, "cat"))
+	else if (!strcmp(tabMots[0], "cat"))
 	{
-		CommandeCat(args[1]);
+		CommandeCat(tabMots[1]);
+	}
+	else if (!strcmp(tabMots[0], "touch")) {
+        CommandeTouch(tabMots,monShell->repertoire);
+	}
+	else if (!strcmp(tabMots[0], "cp")) {
+        if (argc > 2)
+            CommandeCP(tabMots[1],tabMots[2]);
 	}
 	else
 	{
@@ -271,13 +326,14 @@ void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
 			break;
 			//Si on est dans le fils
 			case 0:
-                execvp(cmd, args);
+                execv(tabMots[0], tabMots);
+               // printf("Never executed!\n");
 				exit(0);
 			break;
 			//  Si on est dans le père
 			default:
 				waitpid(pid, &status, 0);
-				printf("Son ended with status %d\n",status);
+				//printf("Son ended with status %d\n",status);
 			break;
 		}
 	}
@@ -287,8 +343,11 @@ void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
 int main(void)
 {
 	char *chaine;
+	char nomUtilisateur [LONGUEUR];
+	char nomHote        [LONGUEUR];
 	int nombreMots = 20;
 	char ** tabMots;
+	char ** arguments;
 	int boolExit = 0;
 
     Minishell monShell = {.compteurHistorique = 0};
@@ -297,30 +356,37 @@ int main(void)
 	tabMots             = (char**)malloc(nombreMots*sizeof(char*));
 	monShell.historique = (char**)malloc(TAILLE_HISTORIQUE*sizeof(char*));
 
-	// Cette fonction fonctionne bien avec une chaine déclarée en statique, mais pas avec un pointeur (comme fait précédemment)
     getcwd(monShell.repertoire,sizeof(monShell.repertoire));
+    gethostname(nomHote,sizeof(nomHote));
+    getlogin_r(nomUtilisateur,sizeof(nomUtilisateur));
 
 	while (!feof(stdin)&&(!boolExit))
 	{
-		printf("> [%s]", monShell.repertoire);
+		printf("> [%s@%s:%s]", nomUtilisateur, nomHote, monShell.repertoire);
 		if (SaisirChaine(chaine, LONGUEUR) && (!feof(stdin)))
 		{
             InsererHistorique(chaine, &monShell);
             int argc = DecouperChaine(chaine, tabMots);
 			if (argc)
 			{
+                arguments = calloc(argc,sizeof(char*));
+                for (int i=0;i<argc;i++) {
+                    arguments[i] = tabMots[i];
+                }
                 if (!strcmp(tabMots[0], "exit"))
                     boolExit = 1;
                 else {
-                    InterpreterCommande(&monShell, argc, tabMots);
+                    InterpreterCommande(&monShell, argc, arguments);
                 }
+                free(arguments);
             }
 		}
 	}
 
     free(chaine);
     free(tabMots);
-    for (int i=0;i<monShell.compteurHistorique;i++)
+    for (int
+    i=0;i<monShell.compteurHistorique;i++)
         free(monShell.historique[i]);
     free(monShell.historique);
 
@@ -329,7 +395,7 @@ int main(void)
 
 
 
-void showArgs(char** tabMots) {
+void afficherArgs(char** tabMots) {
         int i = 0;
         printf("Your arguments :\n");
         while (tabMots[i] != NULL) {
@@ -339,7 +405,7 @@ void showArgs(char** tabMots) {
         printf("\n");
 }
 
-int isDir(char* path) {
+int estRepertoire(char* path) {
     DIR* dir;
     if ((dir = opendir(path)) != NULL) {
         closedir(dir);
@@ -348,28 +414,28 @@ int isDir(char* path) {
     return false;
 }
 
-char last(char* str) {
+char dernier(char* str) {
     return str[strlen(str)-1];
 }
 
-char* setlast(char* str) {
+char* setdernier(char* str) {
     return &str[strlen(str)-1];
 }
 
-char first(char* str) {
+char premier(char* str) {
     return str[0];
 }
 
-char* setfirst(char* str) {
+char* setpremier(char* str) {
     return &str[0];
 }
 
-void popPath(char* path) {
+void popChemin(char* path) {
     if (strcmp(path,"/")) {
-        char c = last(path);
+        char c = dernier(path);
         while (strlen(path) && strcmp(path,"/") && c != '/') {
-            c = last(path);
-            *setlast(path) = 0;
+            c = dernier(path);
+            *setdernier(path) = 0;
         }
     }
 }
