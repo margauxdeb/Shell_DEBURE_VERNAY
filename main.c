@@ -3,7 +3,7 @@
 //  MiniShell
 //
 //  Created by Margaux Debure on 30/03/2016.
-//  Copyright Â© 2016 Margaux Debure. All rights reserved.
+//  Copyright © 2016 Margaux Debure. All rights reserved.
 //
 
 #include <stdlib.h>
@@ -15,10 +15,13 @@
 #include <dirent.h>
 #include <wait.h>
 
+#define true 1
+#define false 0
+
 #define LONGUEUR 2048
 #define TAILLE_HISTORIQUE 100
 
-/* On stockera dans cette structure toutes les donnÃ©es relatives au Shell, pour les passer facilement
+/* On stockera dans cette structure toutes les données relatives au Shell, pour les passer facilement
 aux diverses fonctions */
 typedef struct minishell {
     char**  historique;
@@ -26,12 +29,21 @@ typedef struct minishell {
     int     compteurHistorique;
 } Minishell;
 
+
+/* Fonctions à renommer, voire à réviser */
 void showArgs(char**);
+int isDir(char*);
+void popPath(char*);
+char last(char*);
+char first(char*);
+char* setlast(char*);
+char* setfirst(char*);
+
 /* La fonction create_process duplique le processus appelant et retourne
- le PID du processus fils ainsi crÃ©Ã© */
+ le PID du processus fils ainsi créé */
 pid_t CreerProcessus()
 {
-    /* On crÃ©e une nouvelle valeur de type pid_t */
+    /* On crée une nouvelle valeur de type pid_t */
     pid_t pid;
 
     /* On fork() tant que l'erreur est EAGAIN */
@@ -41,7 +53,7 @@ pid_t CreerProcessus()
     }
     while ((pid == -1) && (errno == EAGAIN));
 
-    /* On retourne le PID du processus ainsi crÃ©Ã© */
+    /* On retourne le PID du processus ainsi créé */
     return pid;
 }
 
@@ -65,12 +77,11 @@ void InsererHistorique(char *chaine, Minishell* monShell)
     }
 }
 
-void CommandeHistory(char **historique, int compteurHistorique)
+void CommandeHistory(Minishell* monShell)
 {
     int i;
-
-    for (i=0; i<compteurHistorique; i++)
-	printf("\t%d : %s \n", i+1, historique[i]);
+    for (i=0; i<monShell->compteurHistorique; i++)
+        printf("\t%d : %s \n", i+1, monShell->historique[i]);
 }
 
 int SaisirChaine(char *chaine, int longueur)
@@ -109,7 +120,7 @@ int DecouperChaine(char* chaine, char** tabMots)
 	char *token;
 	int i=0;
 
-	//DÃ©couper la chaÃ®ne selon les espaces
+	//Découper la chaîne selon les espaces
 	token = strtok (chaine," ");
 
 	while (token != NULL)
@@ -122,6 +133,7 @@ int DecouperChaine(char* chaine, char** tabMots)
 	return i;
 }
 
+/*
 void CommandeCD(char **tabMots, char *repertoire)
 {
 	DIR* dt;
@@ -175,8 +187,52 @@ void CommandeCD(char **tabMots, char *repertoire)
 		}
 	}
 }
+*/
 
-void InterpreterCommande(Minishell* monShell,int argc, char** tabMots) {
+void CommandeCD(char** args, char* repertoire) {
+    /* Création d'un alias */
+    char* path = args[0];
+
+    if (path == NULL || !strcmp(path,"/")) {
+        strcpy(repertoire,"/");
+    }
+    else {
+        if (strlen(path) > 1 && last(path)== '/') {
+            *setlast(path) = 0;
+        }
+        if (strlen(path) > 1 && first(path) == '/') {
+            *setfirst(path++) = 0;
+        }
+        if (!strcmp(path,".")){
+
+        }
+        else if (!strcmp(path,"..")) {
+            popPath(repertoire);
+        }
+        else  {
+            char* temp = calloc(LONGUEUR,sizeof(char));
+            strcpy(temp,repertoire);
+            if ( !(!strcmp(repertoire,"/") || last(repertoire) == '/') ) {
+                printf("J'ajoute un slash apres %c!\n",last(repertoire));
+                strcat(temp,"/");
+            }
+            strcat(temp,path);
+
+            if (isDir(temp)) {
+                strcpy(repertoire,temp);
+            }
+            else {
+                printf("minishell : No such file or directory.\n");
+            }
+
+            free(temp);
+        }
+        printf("path=%s\n",path);
+    }
+
+}
+
+void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
 
 	pid_t pid;
 
@@ -186,16 +242,18 @@ void InterpreterCommande(Minishell* monShell,int argc, char** tabMots) {
     for (int i=0;i<argc;i++) {
         args[i] = tabMots[i];
     }
+    /* Création d'un alias */
+    char* cmd = args[0];
 
-    if (!strcmp(args[0], "cd"))
+    if (!strcmp(cmd, "cd"))
     {
-        CommandeCD(args, monShell->repertoire);
+        CommandeCD(&args[1], monShell->repertoire);
     }
-    else if (!strcmp(args[0], "history"))
+    else if (!strcmp(cmd, "history"))
     {
-        CommandeHistory(monShell->historique, monShell->compteurHistorique);
+        CommandeHistory(monShell);
     }
-	else if (!strcmp(args[0], "cat"))
+	else if (!strcmp(cmd, "cat"))
 	{
 		CommandeCat(args[1]);
 	}
@@ -206,18 +264,17 @@ void InterpreterCommande(Minishell* monShell,int argc, char** tabMots) {
 		pid = CreerProcessus();
 		switch (pid)
 		{
-			//Si on a une erreur irrÃ©mÃ©diable (ENOMEM dans notre cas)
+			//Si on a une erreur irrémédiable (ENOMEM dans notre cas)
 			case -1:
 				perror("fork");
 				return EXIT_FAILURE;
 			break;
 			//Si on est dans le fils
 			case 0:
-				if (execv(args[0], args) < 0)
-				printf("Attained the unattainable ! \n");
+                execvp(cmd, args);
 				exit(0);
 			break;
-			//  Si on est dans le pÃ¨re
+			//  Si on est dans le père
 			default:
 				waitpid(pid, &status, 0);
 				printf("Son ended with status %d\n",status);
@@ -240,7 +297,7 @@ int main(void)
 	tabMots     = (char**)malloc(nombreMots*sizeof(char*));
 	monShell.historique = (char**)malloc(TAILLE_HISTORIQUE*sizeof(char*));
 
-	// Cette fonction fonctionne bien avec une chaine dÃ©clarÃ©e en statique, mais pas avec un pointeur (comme fait prÃ©cÃ©demment)
+	// Cette fonction fonctionne bien avec une chaine déclarée en statique, mais pas avec un pointeur (comme fait précédemment)
     getcwd(monShell.repertoire,sizeof(monShell.repertoire));
 
 	while (!feof(stdin)&&(!boolExit))
@@ -248,14 +305,16 @@ int main(void)
 		printf("> [%s]", monShell.repertoire);
 		if (SaisirChaine(chaine, LONGUEUR) && (!feof(stdin)))
 		{
-			int argc = DecouperChaine(chaine, tabMots);
-
-			if (!strcmp(tabMots[0], "exit"))
-				boolExit = 1;
-			else {
-                InterpreterCommande(&monShell, argc, tabMots);
-                InsererHistorique(chaine, &monShell);
-			}
+            int argc = DecouperChaine(chaine, tabMots);
+			if (argc)
+			{
+                if (!strcmp(tabMots[0], "exit"))
+                    boolExit = 1;
+                else {
+                    InterpreterCommande(&monShell, argc, tabMots);
+                    InsererHistorique(chaine, &monShell);
+                }
+            }
 		}
 	}
 
@@ -278,4 +337,37 @@ void showArgs(char** tabMots) {
             i++;
         }
         printf("\n");
+}
+
+int isDir(char* path) {
+    DIR* dir;
+    if ((dir = opendir(path)) != NULL) {
+        closedir(dir);
+        return true;
+    }
+    return false;
+}
+
+char last(char* str) {
+    return str[strlen(str)-1];
+}
+
+char* setlast(char* str) {
+    return &str[strlen(str)-1];
+}
+
+char first(char* str) {
+    return str[0];
+}
+
+char* setfirst(char* str) {
+    return &str[0];
+}
+
+void popPath(char* path) {
+    if (strcmp(path,"/")) {
+        while (strlen(path) && last(path) != '/') {
+            *setlast(path) = 0;
+        }
+    }
 }
