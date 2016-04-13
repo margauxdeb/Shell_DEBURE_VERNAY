@@ -59,9 +59,8 @@ pid_t CreerProcessus()
 
 void InsererHistorique(char *chaine, Minishell* monShell)
 {
-
     if (monShell->compteurHistorique < TAILLE_HISTORIQUE) {
-        monShell->historique[monShell->compteurHistorique]=(char*)malloc(LONGUEUR*sizeof(char));
+        monShell->historique[monShell->compteurHistorique] = (char*) malloc (LONGUEUR * sizeof(char));
         strcpy(monShell->historique[monShell->compteurHistorique++], chaine);
     }
 
@@ -193,7 +192,7 @@ void CommandeCD(char** args, char* repertoire) {
     /* Création d'un alias */
     char* path = args[0];
 
-    if (path == NULL || !strcmp(path,"/")) {
+    if (path == NULL) {
         strcpy(repertoire,"/");
     }
     else {
@@ -203,7 +202,11 @@ void CommandeCD(char** args, char* repertoire) {
         if (strlen(path) > 1 && first(path) == '/') {
             *setfirst(path++) = 0;
         }
-        if (!strcmp(path,".")){
+
+        if (!strcmp(path,"/")) {
+            strcpy(repertoire,"/");
+        }
+        else if (!strcmp(path,".")){
 
         }
         else if (!strcmp(path,"..")) {
@@ -213,7 +216,6 @@ void CommandeCD(char** args, char* repertoire) {
             char* temp = calloc(LONGUEUR,sizeof(char));
             strcpy(temp,repertoire);
             if ( !(!strcmp(repertoire,"/") || last(repertoire) == '/') ) {
-                printf("J'ajoute un slash apres %c!\n",last(repertoire));
                 strcat(temp,"/");
             }
             strcat(temp,path);
@@ -227,7 +229,7 @@ void CommandeCD(char** args, char* repertoire) {
 
             free(temp);
         }
-        printf("path=%s\n",path);
+        printf("cd:path=%s\n",path);
     }
 
 }
@@ -259,7 +261,6 @@ void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
 	}
 	else
 	{
-        printf("Unknow command ; trying to execv it ...\n");
         int status;
 		pid = CreerProcessus();
 		switch (pid)
@@ -267,7 +268,6 @@ void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
 			//Si on a une erreur irrémédiable (ENOMEM dans notre cas)
 			case -1:
 				perror("fork");
-				return EXIT_FAILURE;
 			break;
 			//Si on est dans le fils
 			case 0:
@@ -293,8 +293,8 @@ int main(void)
 
     Minishell monShell = {.compteurHistorique = 0};
 
-    chaine      = (char*) calloc(LONGUEUR,sizeof(char));
-	tabMots     = (char**)malloc(nombreMots*sizeof(char*));
+    chaine              = (char*) calloc(LONGUEUR,sizeof(char));
+	tabMots             = (char**)malloc(nombreMots*sizeof(char*));
 	monShell.historique = (char**)malloc(TAILLE_HISTORIQUE*sizeof(char*));
 
 	// Cette fonction fonctionne bien avec une chaine déclarée en statique, mais pas avec un pointeur (comme fait précédemment)
@@ -305,6 +305,7 @@ int main(void)
 		printf("> [%s]", monShell.repertoire);
 		if (SaisirChaine(chaine, LONGUEUR) && (!feof(stdin)))
 		{
+            InsererHistorique(chaine, &monShell);
             int argc = DecouperChaine(chaine, tabMots);
 			if (argc)
 			{
@@ -312,7 +313,6 @@ int main(void)
                     boolExit = 1;
                 else {
                     InterpreterCommande(&monShell, argc, tabMots);
-                    InsererHistorique(chaine, &monShell);
                 }
             }
 		}
@@ -333,7 +333,7 @@ void showArgs(char** tabMots) {
         int i = 0;
         printf("Your arguments :\n");
         while (tabMots[i] != NULL) {
-            printf("\n\t%d : %s(%d)",i,tabMots[i],strlen(tabMots[i]));
+            printf("\n\t%d : %s(%lu)",i,tabMots[i],strlen(tabMots[i]));
             i++;
         }
         printf("\n");
@@ -366,7 +366,9 @@ char* setfirst(char* str) {
 
 void popPath(char* path) {
     if (strcmp(path,"/")) {
-        while (strlen(path) && last(path) != '/') {
+        char c = last(path);
+        while (strlen(path) && strcmp(path,"/") && c != '/') {
+            c = last(path);
             *setlast(path) = 0;
         }
     }
