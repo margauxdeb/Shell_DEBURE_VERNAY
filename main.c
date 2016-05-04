@@ -34,6 +34,7 @@ typedef struct minishell {
 
 /* Fonctions à renommer, voire à réviser */
 void afficherArgs(char**);
+void showArgs(char**,int);
 int estRepertoire(char*);
 void popChemin(char*);
 char dernier(char*);
@@ -90,6 +91,14 @@ void adapt(char* s) {
 int contains(char c, char* tab, int len) {
     for (int i=0;i<len;i++) {
         if (tab[i] == c)
+            return true;
+    }
+    return false;
+}
+
+int containsOneOf(char* c, int nb, char* tab, int len) {
+    for (int i=0;i<nb;i++) {
+        if (contains(c[i],tab,len))
             return true;
     }
     return false;
@@ -308,6 +317,19 @@ void CommandeTouch(char** args, char* repertoire) {
     }
 }
 
+int getSousTableau(char** tab, char** result, int argc, int a, int b) {
+    if (a >= 0 && a < b && b <= argc) {
+        printf("%d to %d\n",a,b);
+        for (int i=a;i<b;i++) {
+            result[i-a] = tab[i];
+        }
+        return b-a;
+    }
+    else {
+        return 0;
+    }
+}
+
 
 
 void chercherCommande(char* cmd) {
@@ -342,9 +364,78 @@ void chercherChemin(char* path, Minishell* monShell) {
     printf("absolute_path=%s\n", path);
 }
 
+
+void ExecuterCommande(Minishell* monShell, int argc, char** tabMots);
+
+int detect(char* str, char** tabMots, int argc) {
+    for (int i=0;i<argc;i++) {
+        if (!strcmp(str,tabMots[i]))
+            return i;
+    }
+    return -1;
+}
+
 void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
+    printf("interpreting ...\n");
+	char delem[] = "<>|";
+	int special = false;
+	// pipes ou redirections
+	for (int i=0;!special && i<argc;i++)
+	if (containsOneOf(delem,3,tabMots[i],argc)) {
+        printf("%s : redirection or pipe expressed\n",tabMots[i]);
+        special = true;
+	}
+
+    if (special) {
+        char** temp = calloc(argc,sizeof(char*));
+        char buffer[LONGUEUR];
+        int myPipe[2];
+        pipe(myPipe);
+        int tmpfile = 0;
+        int indice = 0;
+        if ((indice = detect("|",tabMots,argc)) > 0) {
+            printf("found a pipe\n");
+            int newargc = getSousTableau(tabMots,temp,argc,0,indice);
+            dup2(myPipe[1],1);
+            InterpreterCommande(monShell,newargc,temp);
+            dup2(myPipe[0],0);
+            newargc = getSousTableau(tabMots,temp,argc,indice+1,argc);
+            InterpreterCommande(monShell,newargc,temp);
+        }
+
+
+        else if ((indice = detect(">",tabMots,argc)) > 0) {
+            if (indice < argc-1) {
+                tmpfile = open(tabMots[indice+1],"a");
+                if (tmpfile != NULL) {
+                    dup2(tmpfile,1);
+                    // EXEC
+                    close(tmpfile);
+                }
+            }
+        }
+
+        else {
+            ExecuterCommande(monShell,argc,tabMots);
+        }
+        free(temp);
+    }
+    else {
+        if (argc < 2) {
+            dup2(stdout,1);
+            dup2(stderr,2);
+        }
+        ExecuterCommande(monShell,argc,tabMots);
+        if (argc < 2) {
+            dup2(stdin,0);
+        }
+	}
+}
+
+void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
 
 	pid_t pid;
+	int known = true;
 
     if (!strcmp(tabMots[0], "cd"))
     {
@@ -368,9 +459,11 @@ void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
 	else
 	{
         if (!contains('/',tabMots[0],strlen(tabMots[0])) && !contains('.',tabMots[0],strlen(tabMots[0]))) {
-            afficherArgs(tabMots);
+            /*afficherArgs(tabMots);
             chercherCommande(tabMots[0]);
             afficherArgs(tabMots);
+        */
+            known = false;
         }
         //chercherChemin(tabMots[1],monShell);
 
@@ -384,7 +477,14 @@ void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
 			break;
 			//Si on est dans le fils
 			case 0:
-                execv(tabMots[0], tabMots);
+                if (known)
+                    execv(tabMots[0], tabMots);
+                else {
+                    char temp[LONGUEUR];
+                    strcpy(temp,tabMots[0]);
+                    chercherCommande(temp);
+                    execv(temp,tabMots);
+                }
                // printf("Never executed!\n");
 				exit(0);
 			break;
@@ -400,6 +500,7 @@ void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
 
 int main(void)
 {
+
 	char *chaine;
 	char nomUtilisateur [LONGUEUR];
 	char nomHote        [LONGUEUR];
@@ -457,11 +558,23 @@ int main(void)
 void afficherArgs(char** tabMots) {
         int i = 0;
         printf("Your arguments :\n");
+        if (tabMots == NULL) {
+            printf("it's void !\n");
+        }
+        else
         while (tabMots[i] != NULL) {
-            printf("\n\t%d : %s(%lu)(p=%d)",i,tabMots[i],strlen(tabMots[i]),&tabMots[i]);
+            printf("\n\t%d : %s",i,tabMots[i]);
             i++;
         }
         printf("\n");
+}
+
+void showArgs(char** tab, int len) {
+    printf("Your arguments : \n");
+    for (int i=0;i<len;i++) {
+        printf("\n\t%d : %s",i,tab[i]);
+    }
+    printf("\n");
 }
 
 int estRepertoire(char* path) {
