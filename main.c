@@ -23,6 +23,8 @@
 #define LONGUEUR 2048
 #define TAILLE_HISTORIQUE 100
 
+int cpt = 0;
+
 /* On stockera dans cette structure toutes les données relatives au Shell, pour les passer facilement
 aux diverses fonctions */
 typedef struct minishell {
@@ -318,14 +320,20 @@ void CommandeTouch(char** args, char* repertoire) {
 }
 
 int getSousTableau(char** tab, char** result, int argc, int a, int b) {
+    FILE* log = fopen("./log","a");
+    fprintf(log,"In-getSouSTableau\n");
     if (a >= 0 && a < b && b <= argc) {
-        printf("%d to %d\n",a,b);
+        fprintf(log,"%d to %d\n",a,b);
         for (int i=a;i<b;i++) {
             result[i-a] = tab[i];
         }
+        fprintf(log,"EndgetSousTableau:%d\n",b-a);
+        fclose(log);
         return b-a;
     }
     else {
+        fprintf(log,"OutgetSousTableau\n");
+        fclose(log);
         return 0;
     }
 }
@@ -375,14 +383,18 @@ int detect(char* str, char** tabMots, int argc) {
     return -1;
 }
 
-void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
-    printf("interpreting ...\n");
+void InterpreterCommande(Minishell* monShell, unsigned int argc, char** tabMots) {
+    if (!argc) return;
+	FILE* log = fopen("./log","a");
+    fprintf(log,"%d:interpreting %s\n",cpt,tabMots[0]);cpt++;
+    showArgs(tabMots,argc);
 	char delem[] = "<>|";
 	int special = false;
+	int i;
 	// pipes ou redirections
-	for (int i=0;!special && i<argc;i++)
-	if (containsOneOf(delem,3,tabMots[i],argc)) {
-        printf("%s : redirection or pipe expressed\n",tabMots[i]);
+	for (i=0;!special && i<argc;i++)
+	if (containsOneOf(delem,3,tabMots[i],strlen(tabMots[i]))) {
+        fprintf(log,"%s : redirection or pipe expressed\n",tabMots[i]);
         special = true;
 	}
 
@@ -393,13 +405,19 @@ void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
         pipe(myPipe);
         int tmpfile = 0;
         int indice = 0;
-        if ((indice = detect("|",tabMots,argc)) > 0) {
-            printf("found a pipe\n");
+        if (indice = i) {
+            fprintf(log,"hello!\n");
+            fprintf(log,"found a pipe at %d\n",indice);
             int newargc = getSousTableau(tabMots,temp,argc,0,indice);
-            dup2(myPipe[1],1);
+            fprintf(log,"new sub table of %d\n",newargc);
+            dup2(myPipe[1],STDOUT_FILENO);
             InterpreterCommande(monShell,newargc,temp);
+            /*read(myPipe[0], buffer,LONGUEUR);
+            fprintf(log,"InPipe :\t%s\n",buffer);
+            */
             dup2(myPipe[0],0);
             newargc = getSousTableau(tabMots,temp,argc,indice+1,argc);
+            fprintf(log,"new sub table of %d\n",newargc);
             InterpreterCommande(monShell,newargc,temp);
         }
 
@@ -430,6 +448,8 @@ void InterpreterCommande(Minishell* monShell, int argc, char** tabMots) {
             dup2(stdin,0);
         }
 	}
+	fprintf(log,"%s ended\n",tabMots[0]);
+	fclose(log);
 }
 
 void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
@@ -501,6 +521,8 @@ void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
 int main(void)
 {
 
+    FILE* log = fopen("./log","w");
+    fclose(log);
 	char *chaine;
 	char nomUtilisateur [LONGUEUR];
 	char nomHote        [LONGUEUR];
@@ -523,7 +545,8 @@ int main(void)
 
 	while (!feof(stdin)&&(!boolExit))
 	{
-		printf("> [%s@%s:%s]", nomUtilisateur, nomHote, monShell.repertoire);
+		//printf("> [%s@%s:%s]", nomUtilisateur, nomHote, monShell.repertoire);
+		printf("> minishell > ");
 		if (SaisirChaine(chaine, LONGUEUR) && (!feof(stdin)))
 		{
             InsererHistorique(chaine, &monShell);
