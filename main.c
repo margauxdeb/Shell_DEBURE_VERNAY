@@ -224,6 +224,40 @@ void CommandeHistory(Minishell* monShell)
         printf("\t%d : %s \n", i+1, monShell->historique[i]);
 }
 
+int isAPID(char* str) {
+    for (int i=0;i<strlen(str);i++) {
+        if (str[i] < 48 || str[i] > 57)
+            return false;
+    }
+    return true;
+}
+
+
+void CommandePS() {
+    int i = 0;
+    DIR* proc = opendir("/proc");
+    struct dirent* content = readdir(proc);
+    char cmdline[LONGUEUR];
+    printf("PID\tCMD\n");
+    while (content != NULL && i < 5) {
+        if (isAPID(content->d_name) && strcmp(content->d_name,".") && strcmp(content->d_name,"..")) {
+            char path[LONGUEUR];
+            strcpy(path,"/proc/");
+            strcat(path,content->d_name);
+            strcat(path,"/cmdline");
+           // printf("path:%s\n",path);
+            FILE* myf = fopen(path,"r");
+            fgets(cmdline,LONGUEUR,myf);
+            fclose(myf);
+            printf("%s\t%s\n",content->d_name,cmdline);
+            i++;
+        }
+        content = readdir(proc);
+    }
+    printf("\n");
+    closedir(proc);
+}
+
 int SaisirChaine(char *chaine, int longueur)
 {
     int verif = 0;
@@ -425,15 +459,17 @@ void InterpreterCommande(Minishell* monShell, unsigned int argc, char** tabMots,
                 fprintf(log,"%s ",temp[i]);
             }
             fprintf(log,"\n");
-            dup2(myPipe[1],1);
+            dup2(myPipe[PIPE_WRITE],1);
             fclose(log);
             log = NULL;
-            InterpreterCommande(monShell,newargc,temp, 0, NULL);
-            dup2(stdout_sub,1);
+            InterpreterCommande(monShell,newargc,temp, nbpipes, NULL);
+
+            //if (!(nbpipes-1))
+                dup2(stdout_sub,1);
             log = fopen("./log","a");
             /*read(myPipe[0], buffer,LONGUEUR);
             fprintf(log,"InPipe :\t%s\n",buffer);*/
-            dup2(myPipe[0],0);
+            dup2(myPipe[PIPE_READ],0);
             newargc = getSousTableau(tabMots,temp,argc,indice+1,argc);
             fprintf(log,"new sub table of %d : (after)\n",newargc);
             for (int i=0;i<newargc;i++) {
@@ -443,7 +479,7 @@ void InterpreterCommande(Minishell* monShell, unsigned int argc, char** tabMots,
 
             fclose(log);
             log = NULL;
-            InterpreterCommande(monShell,newargc,temp, nbpipes-1,pipe);
+            InterpreterCommande(monShell,newargc,temp, nbpipes-1,myPipe);
         }
 
 
@@ -459,6 +495,7 @@ void InterpreterCommande(Minishell* monShell, unsigned int argc, char** tabMots,
         }*/
 
         else {
+            fprintf(log,"do we even make it here ?\n");
             ExecuterCommande(monShell,argc,tabMots);
         }
         free(temp);
@@ -466,6 +503,10 @@ void InterpreterCommande(Minishell* monShell, unsigned int argc, char** tabMots,
     else {
         if (!nbpipes) {
             dup2(stdout_sub,1);
+            if (log != NULL)
+                fprintf(log,"We should now be on stdout because executing %s\n",tabMots[0]);
+            else
+                printf("We should be on stdout\n");
         }
         ExecuterCommande(monShell,argc,tabMots);
 	}
@@ -498,6 +539,9 @@ void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
 	else if (!strcmp(tabMots[0], "cp")) {
         if (argc > 2)
             CommandeCP(tabMots[1],tabMots[2]);
+	}
+	else if (!strcmp(tabMots[0], "ps")) {
+        CommandePS();
 	}
 	else
 	{
