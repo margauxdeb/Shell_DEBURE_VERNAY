@@ -31,8 +31,7 @@ aux diverses fonctions */
 
 /* La fonction create_process duplique le processus appelant et retourne
  le PID du processus fils ainsi créé */
-pid_t CreerProcessus()
-{
+pid_t CreerProcessus() {
     /* On crée une nouvelle valeur de type pid_t */
     pid_t pid;
 
@@ -78,8 +77,7 @@ void SupprimerJob(Minishell* monShell) {
     }
 }
 
-void InsererHistorique(char *chaine, Minishell* monShell)
-{
+void InsererHistorique(char *chaine, Minishell* monShell) {
     if (monShell->compteurHistorique < TAILLE_HISTORIQUE) {
         monShell->historique[monShell->compteurHistorique] = (char*) malloc (LONGUEUR * sizeof(char));
         strcpy(monShell->historique[monShell->compteurHistorique++], chaine);
@@ -97,8 +95,7 @@ void InsererHistorique(char *chaine, Minishell* monShell)
     }
 }
 
-int SaisirChaine(char *chaine, int longueur)
-{
+int SaisirChaine(char *chaine, int longueur) {
     int verif = 0;
     char *positionEntree = NULL;
 
@@ -113,8 +110,7 @@ int SaisirChaine(char *chaine, int longueur)
 
 }
 
-int DecouperChaine(char* chaine, char** tabMots, char* delimiteurs)
-{
+int DecouperChaine(char* chaine, char** tabMots, char* delimiteurs) {
 	char *token;
 	int i=0;
 
@@ -143,14 +139,11 @@ int getSousTableau(char** tab, char** result, int argc, int a, int b) {
     }
 }
 
-
-
 void chercherCommande(char* cmd) {
     char temp[LONGUEUR] = "/usr/bin/";
     strcat(temp,cmd);
     strcpy(cmd,temp);
 }
-
 
 void chercherChemin(char* path, Minishell* monShell) {
 
@@ -206,12 +199,13 @@ int detect(char* str, char** tabMots, int argc) {
     return -1;
 }
 
-
-
 void InterpreterCommande(Minishell* monShell, unsigned int argc, char** tabMots, int nbpipes, int* myPipe) {
     if (!argc) return;
-	FILE* log = fopen("./log","a");
-    fprintf(log,"%d:%d:%d:interpreting %s\n", myPipe != NULL,nbpipes,cpt,tabMots[0]);cpt++;
+    char cstmlog[40];
+    sprintf(cstmlog,"%s%d","./logs/log",nbpipes);
+	FILE* log = fopen(cstmlog,"a");
+	fprintf(log,"#init:%d\n",nbpipes);
+    fprintf(log,"%d:%d:%d:interpreting %s\n",nbpipes,nbpipes,myPipe != NULL,tabMots[0]);
     //showArgs(tabMots,argc);
     fprintf(log,"Handling (%d) : ",argc);
     for (int i=0;i<argc;i++) {
@@ -235,15 +229,12 @@ void InterpreterCommande(Minishell* monShell, unsigned int argc, char** tabMots,
             }
             fprintf(log,"\n");
             dup2(myPipe[PIPE_WRITE],1);
-            fclose(log);
-            log = NULL;
+           /* fclose(log);
+            log = NULL;*/
             InterpreterCommande(monShell,newargc,temp, nbpipes, NULL);
 
             //if (!(nbpipes-1))
                 dup2(stdout_sub,1);
-            log = fopen("./log","a");
-            /*read(myPipe[0], buffer,LONGUEUR);
-            fprintf(log,"InPipe :\t%s\n",buffer);*/
             dup2(myPipe[PIPE_READ],0);
             newargc = getSousTableau(tabMots,temp,argc,indice+1,argc);
             fprintf(log,"new sub table of %d : (after)\n",newargc);
@@ -252,12 +243,10 @@ void InterpreterCommande(Minishell* monShell, unsigned int argc, char** tabMots,
             }
             fprintf(log,"\n");
 
-            fclose(log);
-            log = NULL;
+            /*fclose(log);
+            log = NULL;*/
             InterpreterCommande(monShell,newargc,temp, nbpipes-1,myPipe);
         }
-
-
         /*else if ((indice = detect(">",tabMots,argc)) > 0) {
             if (indice < argc-1) {
                 tmpfile = open(tabMots[indice+1],"a");
@@ -281,7 +270,7 @@ void InterpreterCommande(Minishell* monShell, unsigned int argc, char** tabMots,
             if (log != NULL)
                 fprintf(log,"We should now be on stdout because executing %s\n",tabMots[0]);
             else
-                printf("We should be on stdout\n");
+                fprintf(log,"We should be on stdout\n");
         }
         ExecuterCommande(monShell,argc,tabMots);
 	}
@@ -420,8 +409,8 @@ void InterpreterLigne(Minishell* monShell, unsigned int argc, char ** tabMots) {
 int main(void)
 {
 
-    FILE* log = fopen("./log","w");
-    fclose(log);
+    /*FILE* log = fopen("./log","w");
+    fclose(log);*/
 	char *chaine;
 	char nomUtilisateur [LONGUEUR];
 	char nomHote        [LONGUEUR];
