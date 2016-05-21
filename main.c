@@ -77,21 +77,13 @@ void SupprimerJob(Minishell* monShell) {
     }
 }
 
-void InsererHistorique(char *chaine, Minishell* monShell) {
-    if (monShell->compteurHistorique < TAILLE_HISTORIQUE) {
-        monShell->historique[monShell->compteurHistorique] = (char*) malloc (LONGUEUR * sizeof(char));
-        strcpy(monShell->historique[monShell->compteurHistorique++], chaine);
-    }
-
-    else {
-        char* temp = calloc(LONGUEUR,sizeof(char));
-        for (int i=0;i<TAILLE_HISTORIQUE-1;i++) {
-            strcpy(temp,monShell->historique[i]);
-            strcpy(monShell->historique[i],monShell->historique[i+1]);
-            strcpy(monShell->historique[i+1],temp);
+void InsererHistorique(char* chaine, Minishell* monShell) {
+    if (chaine != NULL && strlen(chaine)) {
+        FILE* history = fopen(monShell->historyPath,"a");
+        if (history != NULL) {
+            fprintf(history,"%s\n",chaine);
+            fclose(history);
         }
-        strcpy(monShell->historique[monShell->compteurHistorique-1], chaine);
-        free(temp);
     }
 }
 
@@ -262,7 +254,7 @@ void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
 
     if (!strcmp(tabMots[0], "cd"))
     {
-        CommandeCD(tabMots, monShell->repertoire);
+        CommandeCD(tabMots[1], monShell);
     }
     else if (!strcmp(tabMots[0], "history"))
     {
@@ -393,6 +385,16 @@ void InterpreterLigne(Minishell* monShell, unsigned int argc, char ** tabMots) {
 }
 
 
+/* TODO:
+    il = interpreter_ligne
+    ic = interpreter_commande
+    ec = executer_commande
+
+    dans le main :  on sépare les commandes avec ';' on appelle il sur chaque element
+    dans il :       on sépare les commandes avec '|' on appelle ic sur chaque element + gestion des pipes
+    dans ic :       gestion des redirections '>','<' on appelle ec
+*/
+
 int main(void)
 {
 
@@ -415,13 +417,15 @@ int main(void)
 	monShell.historique = (char**)malloc(TAILLE_HISTORIQUE*sizeof(char*));
 
     getcwd(monShell.repertoire,sizeof(monShell.repertoire));
+    strcpy(monShell.historyPath, monShell.repertoire);
+    strcat(monShell.historyPath, "/minishell.history");
     gethostname(nomHote,sizeof(nomHote));
     getlogin_r(nomUtilisateur,sizeof(nomUtilisateur));
 
 	while (!feof(stdin)&&(!boolExit))
 	{
-		//printf("> [%s@%s:%s]", nomUtilisateur, nomHote, monShell.repertoire);
-		printf("> minishell > ");
+		printf("%s@%s:%s> ", nomUtilisateur, nomHote, monShell.repertoire);
+		//printf("> minishell > ");
 		if (SaisirChaine(chaine, LONGUEUR) && (!feof(stdin)))
 		{
             InsererHistorique(chaine, &monShell);
@@ -430,7 +434,8 @@ int main(void)
 			{
                 arguments = calloc(argc,sizeof(char*));
                 for (int i=0;i<argc;i++) {
-                    arguments[i] = tabMots[i];
+                    arguments[i] = calloc(LONGUEUR,sizeof(char));
+                    strcpy(arguments[i],tabMots[i]);
                 }
                 if (!strcmp(tabMots[0], "exit"))
                     boolExit = 1;
@@ -439,6 +444,8 @@ int main(void)
                     dup2(stdout,1);
                     dup2(stdin,0);
                 }
+                for (int i=0; i<argc;i++)
+                    free(arguments[i]);
                 free(arguments);
             }
 		}

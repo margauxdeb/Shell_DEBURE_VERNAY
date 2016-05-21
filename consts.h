@@ -19,6 +19,7 @@ typedef struct job {
 
 typedef struct minishell {
     char**  historique;
+    char*   historyPath[LONGUEUR];
     char    repertoire[LONGUEUR];
     int     compteurHistorique;
     Job     jobs[64];

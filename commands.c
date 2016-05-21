@@ -13,10 +13,29 @@
 #include "commands.h"
 #include "functions.h"
 
-void CommandeCD(char** args, char* repertoire) {
+void CommandeCD(char* path, Minishell* monShell) {
+
+    if (path == NULL) {
+        strcpy(monShell->repertoire,"/");
+    }
+    else {
+        char temp[LONGUEUR];
+        strcpy(temp,path);
+        chercherChemin(temp,monShell);
+        if (estRepertoire(temp)) {
+            strcpy(monShell->repertoire,temp);
+            chdir(monShell->repertoire);
+        }
+        else {
+            printf("You came in the wrong directory, mf-er\n");
+        }
+    }
+}
+
+void CommandeCDx(char** args, Minishell* monShell) {
 
     if (args[1] == NULL) {
-        strcpy(repertoire,"/");
+        strcpy(monShell->repertoire,"/");
     }
     else {
         if (strlen(args[1]) > 1 && dernier(args[1])== '/') {
@@ -27,27 +46,27 @@ void CommandeCD(char** args, char* repertoire) {
         }
 
         if (!strcmp(args[1],"/")) {
-            strcpy(repertoire,"/");
+            strcpy(monShell->repertoire,"/");
         }
         else if (!strcmp(args[1],".")){
 
         }
         else if (!strcmp(args[1],"..")) {
-            popChemin(repertoire);
+            popChemin(monShell->repertoire);
         }
         else  {
             char* temp = calloc(LONGUEUR,sizeof(char));
-            strcpy(temp,repertoire);
-            if ( !(!strcmp(repertoire,"/") || dernier(repertoire) == '/') ) {
+            strcpy(temp,monShell->repertoire);
+            if ( !(!strcmp(monShell->repertoire,"/") || dernier(monShell->repertoire) == '/') ) {
                 strcat(temp,"/");
             }
             strcat(temp,args[1]);
 
             if (estRepertoire(temp)) {
-                strcpy(repertoire,temp);
+                strcpy(monShell->repertoire,temp);
             }
             else {
-                printf("minishell : No such file or directory.\n");
+                printf("minishell : %s = no such file or directory.\n",args[1]);
             }
 
             free(temp);
@@ -108,9 +127,22 @@ void CommandePS() {
 }
 
 void CommandeHistory(Minishell* monShell) {
-    int i;
-    for (i=0; i<monShell->compteurHistorique; i++)
-        printf("\t%d : %s \n", i+1, monShell->historique[i]);
+    char caractere;
+	FILE* monFichier;
+	int i = 0;
+	if ((monFichier = fopen(monShell->historyPath,"r")) != NULL)
+	{
+		while ((caractere = fgetc(monFichier)) != EOF)
+		{
+            if (!i)
+                printf("%d\t",i++);
+			printf("%c",caractere);
+			if (caractere == '\n')
+                printf("%d\t",i++);
+		}
+		printf("\n");
+		fclose(monFichier);
+	}
 }
 
 int CommandeCP(const char* srcPath, const char* destPath) {

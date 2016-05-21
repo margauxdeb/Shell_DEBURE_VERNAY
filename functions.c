@@ -24,11 +24,11 @@ void adapt(char* s) {
 }
 
 int contains(char c, char* tab, int len) {
+    int nb = 0;
     for (int i=0;i<len;i++) {
-        if (tab[i] == c)
-            return true;
+        nb += (tab[i] == c);
     }
-    return false;
+    return nb;
 }
 
 int containsOneOf(char* c, int nb, char* tab, int len) {
@@ -117,15 +117,19 @@ void popChemin(char* path) {
 
 
 void chercherChemin(char* thispath, Minishell* monShell) {
+    if (!strcmp(thispath,"/"))
+        return;
+
     char result[LONGUEUR];
     char path[LONGUEUR];
     strcpy(path,thispath);
+    int beginslash = thispath[0] == '/';
     char** elems = malloc(64*sizeof(char*));
     //for (int i=0;i<64;i++)
      //   elems[i] = malloc(LONGUEUR*sizeof(char));
     char delem[] = "/";
     int nb = DecouperChaine(path,elems,delem);
-    showArgs(elems,nb);
+    //showArgs(elems,nb);
     int prevnb = 0;
     for (int i=0;i<nb;i++) {
         prevnb += !strcmp(elems[i],"..");
@@ -140,7 +144,21 @@ void chercherChemin(char* thispath, Minishell* monShell) {
             popChemin(temp);
         strcpy(result,temp);
     }
-    for (int i=1;i<nb;i++) {
+    else if (beginslash) {
+        return;
+    }
+    else {
+        char temp[LONGUEUR];
+        strcpy(temp,monShell->repertoire);
+        if (strcmp(temp,"/"))
+            strcat(temp,"/");
+        strcat(temp,thispath);
+        if (fileExists(temp) || estRepertoire(temp)) {
+            strcpy(thispath,temp);
+        }
+        return;
+    }
+    for (int i=0;i<nb;i++) {
          if (strcmp(elems[i],"..")) {
             strcat(result,"/");
             strcat(result,elems[i]);

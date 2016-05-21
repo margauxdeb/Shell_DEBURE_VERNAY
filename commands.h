@@ -3,7 +3,8 @@
 
 #include "consts.h"
 
-void CommandeCD(char** args, char* repertoire);
+void CommandeCD(char* args, Minishell* monShell);
+void CommandeCDx(char**,Minishell*);
 void CommandeTouch(char** args, char* repertoire);
 void CommandeCat(char* chaine);
 void CommandeWait(char* arg);
