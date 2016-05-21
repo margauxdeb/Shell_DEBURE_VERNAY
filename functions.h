@@ -5,6 +5,7 @@
 void afficherArgs(char**);
 void showArgs(char**,int);
 int estRepertoire(char*);
+void chercherChemin(char*,Minishell*);
 void popChemin(char*);
 char dernier(char*);
 char premier(char*);

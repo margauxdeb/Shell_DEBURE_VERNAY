@@ -115,3 +115,42 @@ void popChemin(char* path) {
     }
 }
 
+
+void chercherChemin(char* thispath, Minishell* monShell) {
+    char result[LONGUEUR];
+    char path[LONGUEUR];
+    strcpy(path,thispath);
+    char** elems = malloc(64*sizeof(char*));
+    //for (int i=0;i<64;i++)
+     //   elems[i] = malloc(LONGUEUR*sizeof(char));
+    char delem[] = "/";
+    int nb = DecouperChaine(path,elems,delem);
+    showArgs(elems,nb);
+    int prevnb = 0;
+    for (int i=0;i<nb;i++) {
+        prevnb += !strcmp(elems[i],"..");
+    }
+    if (!strcmp(path,".")) {
+        strcpy(result,monShell->repertoire);
+    }
+    else if (!strcmp(path,"..")) {
+        char temp[LONGUEUR];
+        strcpy(temp,monShell->repertoire);
+        while (prevnb--)
+            popChemin(temp);
+        strcpy(result,temp);
+    }
+    for (int i=1;i<nb;i++) {
+         if (strcmp(elems[i],"..")) {
+            strcat(result,"/");
+            strcat(result,elems[i]);
+        }
+    }
+
+    //for (int i=0;i<64;i++)
+    //    free(elems[i]);
+    free(elems);
+    strcpy(thispath,result);
+    //printf("absolute_path=%s\n", path);
+}
+

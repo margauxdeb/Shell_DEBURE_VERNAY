@@ -145,31 +145,6 @@ void chercherCommande(char* cmd) {
     strcpy(cmd,temp);
 }
 
-void chercherChemin(char* path, Minishell* monShell) {
-
-    char** elems = malloc(64*sizeof(char*));
-    char delem[] = "/";
-    int nb = DecouperChaine(path,elems,delem);
-    if (!strcmp(path,".")) {
-        strcpy(path,monShell->repertoire);
-    }
-    else if (!strcmp(path,"..")) {
-        char temp[LONGUEUR];
-        strcpy(temp,monShell->repertoire);
-        popChemin(temp);
-        strcpy(path,temp);
-    }
-
-    for (int i=1;i<nb;i++) {
-        strcat(path,"/");
-        strcat(path,elems[i]);
-    }
-
-    free(elems);
-
-    printf("absolute_path=%s\n", path);
-}
-
 int compterPipes(char** tabMots, int argc) {
     int special = 0;
     for (int i=0;i<argc;i++)
@@ -293,9 +268,12 @@ void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
     {
         CommandeHistory(monShell);
     }
-	else if (!strcmp(tabMots[0], "cat"))
+	else if (!strcmp(tabMots[0], "cat") && argc > 1)
 	{
-		CommandeCat(tabMots[1]);
+        char temp[LONGUEUR];
+        strcpy(temp,tabMots[1]);
+        chercherChemin(temp,monShell);
+		CommandeCat(temp);
 	}
 	else if (!strcmp(tabMots[0], "touch")) {
         CommandeTouch(tabMots,monShell->repertoire);
@@ -324,6 +302,15 @@ void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
 	else if (!strcmp(tabMots[0],"bg")) {
         if (argc > 1)
             CommandeBG(monShell, tabMots[1]);
+	}
+	else if (!strcmp(tabMots[0],"pwd")) {
+        printf("%s\n",monShell->repertoire);
+	}
+	else if (!strcmp(tabMots[0],"show") && argc > 1) {
+        char temp[LONGUEUR];
+        strcpy(temp,tabMots[1]);
+        chercherChemin(temp,monShell);
+        printf("%s\n",temp);
 	}
 	else
 	{
