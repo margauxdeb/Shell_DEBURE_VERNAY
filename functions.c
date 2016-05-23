@@ -159,7 +159,7 @@ void chercherChemin(char* thispath, Minishell* monShell) {
         return;
     }
     for (int i=0;i<nb;i++) {
-         if (strcmp(elems[i],"..")) {
+         if (elems[i][0] != '.') {
             strcat(result,"/");
             strcat(result,elems[i]);
         }

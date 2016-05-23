@@ -127,20 +127,15 @@ void CommandePS() {
 }
 
 void CommandeHistory(Minishell* monShell) {
-    char caractere;
+    char buffer[LONGUEUR];
 	FILE* monFichier;
 	int i = 0;
 	if ((monFichier = fopen(monShell->historyPath,"r")) != NULL)
 	{
-		while ((caractere = fgetc(monFichier)) != EOF)
+		while ((fgets(buffer,LONGUEUR,monFichier)) != NULL)
 		{
-            if (!i)
-                printf("%d\t",i++);
-			printf("%c",caractere);
-			if (caractere == '\n')
-                printf("%d\t",i++);
+            printf("%d\t%s",i++,buffer);
 		}
-		printf("\n");
 		fclose(monFichier);
 	}
 }

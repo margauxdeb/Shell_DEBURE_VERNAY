@@ -166,93 +166,60 @@ int detect(char* str, char** tabMots, int argc) {
     return -1;
 }
 
-void InterpreterCommande(Minishell* monShell, unsigned int argc, char** tabMots, int nbpipes, int* myPipe) {
-    if (!argc) return;
-    char cstmlog[40];
-    sprintf(cstmlog,"%s%d","./logs/log",nbpipes);
-	FILE* log = fopen(cstmlog,"a");
-	fprintf(log,"#init:%d\n",nbpipes);
-    fprintf(log,"%d:%d:%d:interpreting %s\n",nbpipes,nbpipes,myPipe != NULL,tabMots[0]);
-    //showArgs(tabMots,argc);
-    fprintf(log,"Handling (%d) : ",argc);
-    for (int i=0;i<argc;i++) {
-        fprintf(log,"%s ",tabMots[i]);
-    }
-    fprintf(log,"\n");
-	int i;
-	// pipes ou redirections
-
-    int stdout_sub = dup(1); // on sauvegarde une copie de stdout pour le remettre en place en suite
-
-    if (nbpipes && myPipe != NULL) {
-        char** temp = calloc(argc,sizeof(char*));
-        int tmpfile = 0;
-        int indice = 0;
-        if (indice = detect("|",tabMots,argc)) {
-            int newargc = getSousTableau(tabMots,temp,argc,0,indice);
-            fprintf(log,"new sub table of %d : (afore)\n",newargc);
-             for (int i=0;i<newargc;i++) {
-                fprintf(log,"%s ",temp[i]);
-            }
-            fprintf(log,"\n");
-            dup2(myPipe[PIPE_WRITE],1);
-           /* fclose(log);
-            log = NULL;*/
-            InterpreterCommande(monShell,newargc,temp, nbpipes, NULL);
-
-            //if (!(nbpipes-1))
-                dup2(stdout_sub,1);
-            dup2(myPipe[PIPE_READ],0);
-            newargc = getSousTableau(tabMots,temp,argc,indice+1,argc);
-            fprintf(log,"new sub table of %d : (after)\n",newargc);
-            for (int i=0;i<newargc;i++) {
-                fprintf(log,"%s ",temp[i]);
-            }
-            fprintf(log,"\n");
-
-            /*fclose(log);
-            log = NULL;*/
-            InterpreterCommande(monShell,newargc,temp, nbpipes-1,myPipe);
+void InterpreterCommande(Minishell* monShell,char* cmdline, int nbpipes, int* myPipe) {
+    printf("ic:%s\n",cmdline);
+    char** args = calloc(64,sizeof(char*));
+    int rin =  contains('<',cmdline,strlen(cmdline));
+    int rout = contains('>',cmdline,strlen(cmdline));
+    int argc = DecouperChaine(cmdline,args," ");
+    rin = detect("<",args,argc);
+    rout= detect(">",args,argc);
+    FILE* inFile = NULL;
+    FILE* outFile = NULL;
+    int stdin_sub = -1;
+    int stdout_sub = -1;
+    if (rin > 0) {
+        printf("(%d)redirection < ",rin);
+        if ((inFile = fopen(args[rin+1],"r+")) != NULL) {
+            printf("%s",args[rin+1]);
+           // stdin_sub = dup(0);
+            dup2(inFile,0);
         }
-        /*else if ((indice = detect(">",tabMots,argc)) > 0) {
-            if (indice < argc-1) {
-                tmpfile = open(tabMots[indice+1],"a");
-                if (tmpfile != NULL) {
-                    dup2(tmpfile,1);
-                    // EXEC
-                    close(tmpfile);
-                }
-            }
-        }*/
-
-        else {
-            fprintf(log,"do we even make it here ?\n");
-            ExecuterCommande(monShell,argc,tabMots);
-        }
-        free(temp);
+        printf("\n");
     }
-    else {
-        if (!nbpipes) {
-            dup2(stdout_sub,1);
-            if (log != NULL)
-                fprintf(log,"We should now be on stdout because executing %s\n",tabMots[0]);
-            else
-                fprintf(log,"We should be on stdout\n");
+    if (rout > 0) {
+        printf("redirection > ");
+        if ((outFile = fopen(args[rout+1],"r+")) != NULL) {
+            printf("%s",args[rout+1]);
+           // stdout_sub = dup(1);
+            dup2(outFile,1);
         }
-        ExecuterCommande(monShell,argc,tabMots);
-	}
-    if (log != NULL) {
-        fprintf(log,"%s ended\n",tabMots[0]);
-        fclose(log);
+        printf("\n");
     }
+    ExecuterCommande(monShell,argc,args);
+    if (rin > 0) {
+        if (inFile != NULL)
+            fclose(inFile);
+        //if (stdin_sub >= 0)
+        //dup2(stdin,0);
+    }
+    if (rout > 0) {
+        if (outFile != NULL)
+            fclose(outFile);
+        //if (stdout_sub >= 0)
+        //dup2(stdout,1);
+    }
+    free(args);
 }
 
 void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
 
 	pid_t pid;
 	int known = true;
-
-    if (!strcmp(tabMots[0], "cd"))
+    if (!strcmp(tabMots[0], "exit")) {
+        exit(0);
+    }
+    else if (!strcmp(tabMots[0], "cd"))
     {
         CommandeCD(tabMots[1], monShell);
     }
@@ -350,37 +317,41 @@ void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
 	}
 }
 
-void InterpreterLigne(Minishell* monShell, unsigned int argc, char ** tabMots) {
-    int nbpipes = compterPipes(tabMots,argc);
-    int sub_stdin = dup(0);
-    int sub_stdout = dup(1);
-    int sub_stderr = dup(2);
-    if (nbpipes) {
-        printf("Found some pipes !(%d)\n",nbpipes);
-        int thisPipe[2];
-        pipe(thisPipe);
-        InterpreterCommande(monShell,argc,tabMots,nbpipes,thisPipe);
-        dup2(sub_stdout,1);
-        dup2(sub_stdin,0);
-        dup2(sub_stderr,2);
-        close(thisPipe[1]);
-        char buffer[60];
-        printf("Residu du pipe : ");
-        //while (!feof(thisPipe[0])) {
-            /*read(thisPipe[0],buffer,60*sizeof(char));
-            printf("%s",buffer);*/
-        //}*/
-        printf("\n");
-        close(thisPipe[0]);
+void InterpreterLigne(char* cmdline, Minishell* monShell) {
+    char delim[] = "|";
+    int havepipe = false;
+    if (containsOneOf(delim,1,cmdline,strlen(cmdline))) {
+        havepipe = true;
     }
-    else if (isSpecial(tabMots,argc)) {
-        InterpreterCommande(monShell,argc,tabMots,0,NULL);
-        dup2(sub_stdout,1);
-        dup2(sub_stdin,0);
-        dup2(sub_stderr,2);
+    if (havepipe) {
+        char** cmds = malloc(20*sizeof(char*));
+        int nbpipes = contains('|',cmdline,strlen(cmdline));
+        int indice;
+        int idpipe = 0;
+        int cmdc = DecouperChaine(cmdline,cmds,delim);
+        if (cmdc == nbpipes) {
+            nbpipes = cmdc - 1;
+        }
+        int pipes[nbpipes][2];
+        while (idpipe < nbpipes) {
+            pipe(pipes[idpipe]); // on ouvre le pipe actuel
+            dup2 (pipes[idpipe][PIPE_WRITE],1); // on écrit dans le pipe actuel
+            InterpreterCommande(monShell,cmds[idpipe],0,NULL);
+            if (idpipe) // on ferme le r pipe precedent
+                close(pipes[idpipe-1][PIPE_READ]);
+            dup2 (pipes[idpipe][PIPE_READ],0); // on lit dans le pipe actuel
+            close(pipes[idpipe][PIPE_WRITE]); // on ferme le w pipe actuel
+            idpipe++;
+        }
+        if (idpipe < cmdc) {
+            InterpreterCommande(monShell,cmds[idpipe],0,NULL);
+            close(pipes[idpipe-1][PIPE_READ]);
+        }
+
+        free(cmds);
     }
     else {
-        ExecuterCommande(monShell,argc,tabMots);
+        InterpreterCommande(monShell,cmdline,0,NULL);
     }
 }
 
@@ -414,7 +385,6 @@ int main(void)
 
     chaine              = (char*) calloc(LONGUEUR,sizeof(char));
 	tabMots             = (char**)malloc(nombreMots*sizeof(char*));
-	monShell.historique = (char**)malloc(TAILLE_HISTORIQUE*sizeof(char*));
 
     getcwd(monShell.repertoire,sizeof(monShell.repertoire));
     strcpy(monShell.historyPath, monShell.repertoire);
@@ -422,40 +392,19 @@ int main(void)
     gethostname(nomHote,sizeof(nomHote));
     getlogin_r(nomUtilisateur,sizeof(nomUtilisateur));
 
-	while (!feof(stdin)&&(!boolExit))
+	while (!feof(stdin))
 	{
 		printf("%s@%s:%s> ", nomUtilisateur, nomHote, monShell.repertoire);
 		//printf("> minishell > ");
 		if (SaisirChaine(chaine, LONGUEUR) && (!feof(stdin)))
 		{
             InsererHistorique(chaine, &monShell);
-            int argc = DecouperChaine(chaine, tabMots, delimiteurs);
-			if (argc)
-			{
-                arguments = calloc(argc,sizeof(char*));
-                for (int i=0;i<argc;i++) {
-                    arguments[i] = calloc(LONGUEUR,sizeof(char));
-                    strcpy(arguments[i],tabMots[i]);
-                }
-                if (!strcmp(tabMots[0], "exit"))
-                    boolExit = 1;
-                else {
-                    InterpreterLigne(&monShell, argc, arguments);
-                    dup2(stdout,1);
-                    dup2(stdin,0);
-                }
-                for (int i=0; i<argc;i++)
-                    free(arguments[i]);
-                free(arguments);
-            }
+            InterpreterLigne( chaine, &monShell);
 		}
 	}
 
     free(chaine);
     free(tabMots);
-    for (int i=0;i<monShell.compteurHistorique;i++)
-        free(monShell.historique[i]);
-    free(monShell.historique);
 
 	return (0);
 }
