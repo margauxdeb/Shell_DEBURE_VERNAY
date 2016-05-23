@@ -157,7 +157,9 @@ int isSpecial(char** tabMots, int argc) {
 
 
 void ExecuterCommandeDansFils(Minishell* monShell, char* cmdline, int in, int out) {
-    printf("attempting:\nin\t%d\nout\t%d\n",in,out);
+    printf("attempting:\n");
+    if (in < 0) printf("in\tstdin\n"); else printf("in\t%d\n",in);
+    if (out < 0) printf("out\tstdout\n"); else printf("out\t%d\n",out);
     char** tabMots = malloc(64*sizeof(char*));
     int argc = DecouperChaine(cmdline,tabMots," ");
 
@@ -171,14 +173,16 @@ void ExecuterCommandeDansFils(Minishell* monShell, char* cmdline, int in, int ou
     if (rin > 0) {
         inFile = open(tabMots[rin+1],O_RDONLY);
         if (inFile >= 0) {
-            printf("Should be reading from %s \n",tabMots[rin+1]);
+            printf("Should be reading from %s(%d)\n",tabMots[rin+1]);
+            if (in >= 0) close(in);
             in = inFile;
         }
     }
     if (rout > 0) {
         outFile = open(tabMots[rout+1],O_WRONLY | O_CREAT, 0666);
         if (outFile >= 0) {
-            printf("Should be writing in %s\n",tabMots[rout+1]);
+            printf("Should be writing in %s\n(%d)",tabMots[rout+1],outFile);
+            if (out >= 0) close(out);
             out = outFile;
         }
     }
@@ -382,6 +386,7 @@ void InterpreterLigne(char* cmdline, Minishell* monShell) {
         int pipes[nbpipes][2];
         while (idpipe < nbpipes) {
             pipe(pipes[idpipe]); // on ouvre le pipe actuel
+            printf("newpipe : r=%d\tw=%d\n",pipes[idpipe][0],pipes[idpipe][1]);
             //dup2 (pipes[idpipe][PIPE_WRITE],1); // on écrit dans le pipe actuel
             //InterpreterCommande(monShell,cmds[idpipe],0,NULL);
             if (!idpipe) {
@@ -399,6 +404,12 @@ void InterpreterLigne(char* cmdline, Minishell* monShell) {
         if (idpipe < cmdc) {
                 ExecuterCommandeDansFils(monShell,cmds[idpipe],pipes[idpipe-1][PIPE_READ],-1);
                 close(pipes[idpipe-1][PIPE_READ]);
+        }
+
+        for (int i=0;i<nbpipes;i++) {
+            for (int j=0;j<2;j++)
+                if (pipes[i][j] >= 0)
+                    close(pipes[i][j]);
         }
 
         free(cmds);
