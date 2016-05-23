@@ -157,9 +157,11 @@ int isSpecial(char** tabMots, int argc) {
 
 
 void ExecuterCommandeDansFils(Minishell* monShell, char* cmdline, int in, int out) {
-    printf("attempting:\n");
-    if (in < 0) printf("in\tstdin\n"); else printf("in\t%d\n",in);
-    if (out < 0) printf("out\tstdout\n"); else printf("out\t%d\n",out);
+    if (in >= 0 || out >= 0) {
+        printf("attempting:\n");
+        if (in < 0) printf("in\tstdin\n"); else printf("in\t%d\n",in);
+        if (out < 0) printf("out\tstdout\n"); else printf("out\t%d\n",out);
+    }
     char** tabMots = malloc(64*sizeof(char*));
     int argc = DecouperChaine(cmdline,tabMots," ");
 
@@ -214,8 +216,8 @@ void ExecuterCommandeDansFils(Minishell* monShell, char* cmdline, int in, int ou
             if (out >= 0)
                 dup2(out,1);
             ExecuterCommande(monShell,argc,tabMots);
-            //if (in >= 0) close(in);
-            //if (out >=0) close(out);
+            if (in >= 0) close(in);
+            if (out >=0) close(out);
             // printf("Never executed!\n");
             exit(0);
         break;
@@ -231,10 +233,10 @@ void ExecuterCommandeDansFils(Minishell* monShell, char* cmdline, int in, int ou
         break;
     }
 
-    if (inFile >= 0)
-        close(inFile);
-    if (outFile >= 0)
-        close(outFile);
+    if (in >= 0)
+        close(in);
+    if (out >= 0)
+        close(out);
 }
 
 
@@ -387,18 +389,12 @@ void InterpreterLigne(char* cmdline, Minishell* monShell) {
         while (idpipe < nbpipes) {
             pipe(pipes[idpipe]); // on ouvre le pipe actuel
             printf("newpipe : r=%d\tw=%d\n",pipes[idpipe][0],pipes[idpipe][1]);
-            //dup2 (pipes[idpipe][PIPE_WRITE],1); // on écrit dans le pipe actuel
-            //InterpreterCommande(monShell,cmds[idpipe],0,NULL);
             if (!idpipe) {
                 ExecuterCommandeDansFils(monShell,cmds[idpipe],-1,pipes[idpipe][PIPE_WRITE]);
                 close(pipes[idpipe][PIPE_WRITE]);
             }
             else
                 ExecuterCommandeDansFils(monShell,cmds[idpipe],pipes[idpipe-1][PIPE_READ],pipes[idpipe][PIPE_WRITE]);
-            //if (idpipe) // on ferme le r pipe precedent
-            //    close(pipes[idpipe-1][PIPE_READ]);
-            //dup2 (pipes[idpipe][PIPE_READ],0); // on lit dans le pipe actuel
-            //close(pipes[idpipe][PIPE_WRITE]); // on ferme le w pipe actuel
             idpipe++;
         }
         if (idpipe < cmdc) {
@@ -406,11 +402,14 @@ void InterpreterLigne(char* cmdline, Minishell* monShell) {
                 close(pipes[idpipe-1][PIPE_READ]);
         }
 
-        for (int i=0;i<nbpipes;i++) {
+        /*for (int i=0;i<nbpipes;i++) {
             for (int j=0;j<2;j++)
-                if (pipes[i][j] >= 0)
+                if (pipes[i][j] >= 0) {
+                    printf("%d;",pipes[i][j]);
                     close(pipes[i][j]);
+                }
         }
+        printf("\n");*/
 
         free(cmds);
     }
