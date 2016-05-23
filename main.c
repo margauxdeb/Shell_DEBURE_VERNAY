@@ -46,6 +46,27 @@ pid_t CreerProcessus() {
     return pid;
 }
 
+void tryAndFindOut() {
+    char* path = getenv("PATH");
+    printf("PATH:%s\n",path);
+}
+
+pid_t getppidlive(char* pid) {
+    char path[LONGUEUR];
+    sprintf(path,"/proc/%s/stat",pid);
+    FILE* there = fopen(path,"r");
+    if (there != NULL) {
+        fgets(path,1024,there);
+        char** tabs = calloc(64,sizeof(char*));
+        DecouperChaine(path,tabs," ");
+        pid_t ppid = atoi(tabs[3]);
+        free(tabs);
+        fclose(there);
+        return ppid;
+    }
+    return -1;
+}
+
 void AjouterJob(Minishell* monShell) {
     //TODO
     monShell->nbjobs++;
@@ -132,9 +153,19 @@ int getSousTableau(char** tab, char** result, int argc, int a, int b) {
 }
 
 void chercherCommande(char* cmd) {
-    char temp[LONGUEUR] = "/usr/bin/";
-    strcat(temp,cmd);
-    strcpy(cmd,temp);
+    char* path = getenv("PATH");
+    char** paths = calloc(32, sizeof(char*));
+    int nbpaths = DecouperChaine(path,paths,":");
+    char temp[LONGUEUR];
+    for (int i=0;i<nbpaths;i++) {
+        strcpy(temp,paths[i]);
+        strcat(temp,"/");
+        strcat(temp,cmd);
+        if (fileExists(temp) || estRepertoire(temp)) {
+            strcpy(cmd,temp);
+            return;
+        }
+    }
 }
 
 int compterPipes(char** tabMots, int argc) {
@@ -248,52 +279,6 @@ int detect(char* str, char** tabMots, int argc) {
     return -1;
 }
 
-void InterpreterCommande(Minishell* monShell,char* cmdline, int nbpipes, int* myPipe) {
-    printf("ic:%s\n",cmdline);
-    char** args = calloc(64,sizeof(char*));
-    int rin =  contains('<',cmdline,strlen(cmdline));
-    int rout = contains('>',cmdline,strlen(cmdline));
-    int argc = DecouperChaine(cmdline,args," ");
-    rin = detect("<",args,argc);
-    rout= detect(">",args,argc);
-    FILE* inFile = NULL;
-    FILE* outFile = NULL;
-    int stdin_sub = -1;
-    int stdout_sub = -1;
-    if (rin > 0) {
-        printf("(%d)redirection < ",rin);
-        if ((inFile = fopen(args[rin+1],"r+")) != NULL) {
-            printf("%s",args[rin+1]);
-           // stdin_sub = dup(0);
-            dup2(inFile,0);
-        }
-        printf("\n");
-    }
-    if (rout > 0) {
-        printf("redirection > ");
-        if ((outFile = fopen(args[rout+1],"r+")) != NULL) {
-            printf("%s",args[rout+1]);
-           // stdout_sub = dup(1);
-            dup2(outFile,1);
-        }
-        printf("\n");
-    }
-    ExecuterCommande(monShell,argc,args);
-    if (rin > 0) {
-        if (inFile != NULL)
-            fclose(inFile);
-        //if (stdin_sub >= 0)
-        //dup2(stdin,0);
-    }
-    if (rout > 0) {
-        if (outFile != NULL)
-            fclose(outFile);
-        //if (stdout_sub >= 0)
-        //dup2(stdout,1);
-    }
-    free(args);
-}
-
 void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
 
 	int known = true;
@@ -360,6 +345,9 @@ void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
         chercherChemin(temp,monShell);
         printf("%s\n",temp);
     }
+    else if (!strcmp(tabMots[0],"try") && argc > 1) {
+        getppidlive(tabMots[1]);
+    }
     else if (known)
         execv(tabMots[0], tabMots);
     else {
@@ -418,9 +406,18 @@ void InterpreterLigne(char* cmdline, Minishell* monShell) {
     }
 }
 
+void meh(int a) {
+    printf("ye sent meh sig%d, ain't ya ?\n");
+}
+
+void handleSignals() {
+    signal(SIGSTOP,meh);
+}
+
 int main(void)
 {
 
+    handleSignals();
     /*FILE* log = fopen("./log","w");
     fclose(log);*/
 	char *chaine;

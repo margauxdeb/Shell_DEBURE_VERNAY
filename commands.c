@@ -103,6 +103,7 @@ void CommandeWait(char* arg) {
 void CommandePS() {
     printf("WIP\n");
     int i = 0;
+    pid_t meinpid = getpid();
     DIR* proc = opendir("/proc");
     struct dirent* content = readdir(proc);
     char cmdline[LONGUEUR];
@@ -117,7 +118,8 @@ void CommandePS() {
             FILE* myf = fopen(path,"r");
             fgets(cmdline,LONGUEUR,myf);
             fclose(myf);
-            printf("%s\t%s\n",content->d_name,cmdline);
+           // if (getppidlive(content->d_name) == meinpid)
+                printf("%s\t%s\n",content->d_name,cmdline);
            // i++;
         }
         content = readdir(proc);
