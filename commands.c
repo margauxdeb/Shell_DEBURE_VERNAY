@@ -39,17 +39,42 @@ void CommandeTouch(char** args, char* repertoire) {
     }
 }
 
-void CommandeCat(char* chaine) {
+void CommandeCat(int argc, char** args) {
 	char caractere;
 	FILE* monFichier;
-	if ((monFichier = fopen(chaine,"r")) != NULL)
-	{
-		while ((caractere = fgetc(monFichier)) != EOF)
-		{
-			printf("%c",caractere);
-		}
-		printf("\n");
-		fclose(monFichier);
+	int count = 0;
+	if (argc) {
+        for (int i=0;i<argc;i++) {
+            if (!strcmp(args[i],"-n")) {
+                count = 1;
+                break;
+            }
+        }
+        for (int i=0;i<argc;i++) {
+            if ( args[i][0] != '-' && (monFichier = fopen(args[i],"r")) != NULL)
+            {
+            /* Ce que je voudrais que tu fasses ; en gros, count prend la valeur 1
+                    si l'un des arguments est -n ;
+                    il faut donc afficher un nombre (count++) devant chaque nouvelle ligne
+                    peut se faire soit en repérant le caractère '\n' en utilisant fgetc
+                    Ou sinon tu peux utiliser fgets (lit une ligne entière, mais peut avoir un
+                    comportement différent et ne pas fonctionner
+                    */
+                while ((caractere = fgetc(monFichier)) != EOF)
+                {
+                    printf("%c",caractere);
+                }
+                printf("\n");
+                fclose(monFichier);
+            }
+        }
+	}
+	else { // on lit l'entrée standard
+        while (caractere != EOF) {
+            printf("%c",caractere);
+            caractere = fgetc(stdin);
+        }
+        printf("\n");
 	}
 }
 

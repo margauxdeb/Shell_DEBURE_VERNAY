@@ -60,7 +60,7 @@ int isAPID(char* str) {
 
 void afficherArgs(char** tabMots) {
         int i = 0;
-        printf("Your arguments :\n");
+        printf("Your arguments :");
         if (tabMots == NULL) {
             printf("it's void !\n");
         }
@@ -73,7 +73,7 @@ void afficherArgs(char** tabMots) {
 }
 
 void showArgs(char** tab, int len) {
-    printf("Your arguments : \n");
+    printf("Your arguments : ");
     for (int i=0;i<len;i++) {
         printf("\n\t%d : %s",i,tab[i]);
     }

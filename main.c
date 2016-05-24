@@ -155,6 +155,38 @@ void chercherCommande(char* cmd) {
     }
 }
 
+void removeElement(int ind, char** tab, int argc) {
+    if (argc - ind > 0) {
+        for (int i=ind;i<argc-1;i++) {
+            strcpy(tab[i],
+            tab[i+1]);
+        }
+        tab[argc-1] = NULL;
+    }
+}
+
+int removeRedirections(char** args, int argc) {
+    printf("before:\n");
+    afficherArgs(args);
+
+    for (int i=0;i<argc;i++) {
+        if (!strcmp(args[i],">") || !strcmp(args[i],"<")) {
+            removeElement(i,args,argc);
+            argc--;
+            if (i < argc) {
+                removeElement(i,args,argc);
+                argc--;
+                i--;
+            }
+            i--;
+        }
+    }
+
+    printf("after:\n");
+    afficherArgs(args);
+    return argc;
+}
+
 void ExecuterCommande(Minishell* monShell, char* cmdline, int in, int out) {
     char** tabMots = malloc(64*sizeof(char*));
     int argc = DecouperChaine(cmdline,tabMots," ");
@@ -198,6 +230,7 @@ void ExecuterCommande(Minishell* monShell, char* cmdline, int in, int out) {
                 out = outFile;
             }
         }
+        if (in >= 0 || out >= 0) argc = removeRedirections(tabMots,argc);
         pid_t pid;
         int known = true;
         if (!contains('/',tabMots[0],strlen(tabMots[0])) && !contains('.',tabMots[0],strlen(tabMots[0]))) {
@@ -274,12 +307,9 @@ void ExecuterCommandeDansFils(Minishell* monShell, int argc, char** tabMots) {
     {
         CommandeHistory(monShell,argc,tabMots);
     }
-    else if (!strcmp(tabMots[0], "cat") && argc > 1)
+    else if (!strcmp(tabMots[0], "cat"))
     {
-        char temp[LONGUEUR];
-        strcpy(temp,tabMots[1]);
-        chercherChemin(temp,monShell);
-        CommandeCat(temp);
+        CommandeCat(argc,tabMots);
     }
     else if (!strcmp(tabMots[0], "touch")) {
         CommandeTouch(tabMots,monShell->repertoire);
@@ -324,7 +354,7 @@ void ExecuterCommandeDansFils(Minishell* monShell, int argc, char** tabMots) {
         char temp[LONGUEUR];
         strcpy(temp,tabMots[0]);
         chercherCommande(temp);
-        printf("RESULT:%s\n",temp);
+        //printf("RESULT:%s\n",temp);
         execv(temp,tabMots);
         printf("%s was not executed!\n",tabMots[0]);
     }
@@ -376,19 +406,8 @@ void InterpreterLigne(char* cmdline, Minishell* monShell) {
         ExecuterCommande(monShell,cmdline,-1,-1);
     }
 }
-
-void meh(int a) {
-    printf("ye sent meh sig%d, ain't ya ?\n");
-}
-
-void handleSignals() {
-    signal(SIGSTOP,meh);
-}
-
 int main(void)
 {
-
-    handleSignals();
     /*FILE* log = fopen("./log","w");
     fclose(log);*/
 	char *chaine;
