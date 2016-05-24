@@ -27,49 +27,7 @@ void CommandeCD(char* path, Minishell* monShell) {
             chdir(monShell->repertoire);
         }
         else {
-            printf("You came in the wrong directory, mf-er\n");
-        }
-    }
-}
 
-void CommandeCDx(char** args, Minishell* monShell) {
-
-    if (args[1] == NULL) {
-        strcpy(monShell->repertoire,"/");
-    }
-    else {
-        if (strlen(args[1]) > 1 && dernier(args[1])== '/') {
-            *setdernier(args[1]) = 1;
-        }
-        if (strlen(args[1]) > 1 && premier(args[1]) == '/') {
-            *setpremier(args[1]++) = 1;
-        }
-
-        if (!strcmp(args[1],"/")) {
-            strcpy(monShell->repertoire,"/");
-        }
-        else if (!strcmp(args[1],".")){
-
-        }
-        else if (!strcmp(args[1],"..")) {
-            popChemin(monShell->repertoire);
-        }
-        else  {
-            char* temp = calloc(LONGUEUR,sizeof(char));
-            strcpy(temp,monShell->repertoire);
-            if ( !(!strcmp(monShell->repertoire,"/") || dernier(monShell->repertoire) == '/') ) {
-                strcat(temp,"/");
-            }
-            strcat(temp,args[1]);
-
-            if (estRepertoire(temp)) {
-                strcpy(monShell->repertoire,temp);
-            }
-            else {
-                printf("minishell : %s = no such file or directory.\n",args[1]);
-            }
-
-            free(temp);
         }
     }
 }
@@ -100,10 +58,9 @@ void CommandeWait(char* arg) {
     waitpid(pid,0,0);
 }
 
-void CommandePS() {
+void CommandePS(Minishell* monShell) {
     printf("WIP\n");
     int i = 0;
-    pid_t meinpid = getpid();
     DIR* proc = opendir("/proc");
     struct dirent* content = readdir(proc);
     char cmdline[LONGUEUR];
@@ -118,7 +75,7 @@ void CommandePS() {
             FILE* myf = fopen(path,"r");
             fgets(cmdline,LONGUEUR,myf);
             fclose(myf);
-           // if (getppidlive(content->d_name) == meinpid)
+            if (getppidlive(content->d_name) == monShell->pid || getpid() == monShell->pid)
                 printf("%s\t%s\n",content->d_name,cmdline);
            // i++;
         }
@@ -128,18 +85,55 @@ void CommandePS() {
     closedir(proc);
 }
 
-void CommandeHistory(Minishell* monShell) {
+void CommandeHistory(Minishell* monShell, int argc, char** args) {
     char buffer[LONGUEUR];
+    int ind = 0;
+    int execute = false;
+    if (1) {
+        for (int j=0;j<argc;j++) {
+            if (args[j][0] == '!') {
+                ind = atoi(&args[j][1]);
+                execute = true;
+                break;
+            }
+        }
+        if (!execute)
+            ind = atoi(args[1]);
+    }
 	FILE* monFichier;
 	int i = 0;
+	int all;
 	if ((monFichier = fopen(monShell->historyPath,"r")) != NULL)
 	{
-		while ((fgets(buffer,LONGUEUR,monFichier)) != NULL)
-		{
-            printf("%d\t%s",i++,buffer);
-		}
+        if (!execute) {
+            if (ind) {
+                while ((fgets(buffer,LONGUEUR,monFichier)) != NULL) i++;
+                all = i;
+                fseek(monFichier,0,SEEK_SET);
+                i = 0;
+            }
+            while ((fgets(buffer,LONGUEUR,monFichier)) != NULL)
+            {
+                if (i >= all-ind) {
+                    printf("%d\t%s",i,buffer);
+                }
+                i++;
+            }
+        }
+        else {
+            while ((fgets(buffer,LONGUEUR,monFichier)) != NULL && i <= ind)
+            {
+                if (i == ind) {
+                    *setdernier(buffer) = 0;
+                    InterpreterLigne(buffer,monShell);
+                    break;
+                }
+                i++;
+            }
+        }
 		fclose(monFichier);
 	}
+    printf("ind=%d\n",ind);
 }
 
 int CommandeCP(const char* srcPath, const char* destPath) {

@@ -139,19 +139,6 @@ int DecouperChaine(char* chaine, char** tabMots, char* delimiteurs) {
 
 	return i;
 }
-
-int getSousTableau(char** tab, char** result, int argc, int a, int b) {
-    if (a >= 0 && a < b && b <= argc) {
-        for (int i=a;i<b;i++) {
-            result[i-a] = tab[i];
-        }
-        return b-a;
-    }
-    else {
-        return 0;
-    }
-}
-
 void chercherCommande(char* cmd) {
     char* path = getenv("PATH");
     char** paths = calloc(32, sizeof(char*));
@@ -168,106 +155,99 @@ void chercherCommande(char* cmd) {
     }
 }
 
-int compterPipes(char** tabMots, int argc) {
-    int special = 0;
-    for (int i=0;i<argc;i++)
-	if (!strcmp("|",tabMots[i])){
-        special++;
-	}
-	return special;
-}
-
-int isSpecial(char** tabMots, int argc) {
-	char delem[] = "<>|";
-    for (int i=0;i<argc;i++)
-	if (containsOneOf(delem,3,tabMots[i],strlen(tabMots[i]))) {
-        return true;
-	}
-	return false;
-}
-
-
-void ExecuterCommandeDansFils(Minishell* monShell, char* cmdline, int in, int out) {
-    if (in >= 0 || out >= 0) {
-        printf("attempting:\n");
-        if (in < 0) printf("in\tstdin\n"); else printf("in\t%d\n",in);
-        if (out < 0) printf("out\tstdout\n"); else printf("out\t%d\n",out);
-    }
+void ExecuterCommande(Minishell* monShell, char* cmdline, int in, int out) {
     char** tabMots = malloc(64*sizeof(char*));
     int argc = DecouperChaine(cmdline,tabMots," ");
-
-    // DETECT REDIRECTIONS
-
-    int rin = detect("<",tabMots,argc);
-    int rout= detect(">",tabMots,argc);
-    int inFile = -1;
-    int outFile = -1;
-
-    if (rin > 0) {
-        inFile = open(tabMots[rin+1],O_RDONLY);
-        if (inFile >= 0) {
-            printf("Should be reading from %s(%d)\n",tabMots[rin+1]);
-            if (in >= 0) close(in);
-            in = inFile;
-        }
+    if (!strcmp(tabMots[0], "exit")) {
+        exit(0);
     }
-    if (rout > 0) {
-        outFile = open(tabMots[rout+1],O_WRONLY | O_CREAT, 0666);
-        if (outFile >= 0) {
-            printf("Should be writing in %s\n(%d)",tabMots[rout+1],outFile);
-            if (out >= 0) close(out);
-            out = outFile;
-        }
-    }
-	pid_t pid;
-	int known = true;
-    if (!contains('/',tabMots[0],strlen(tabMots[0])) && !contains('.',tabMots[0],strlen(tabMots[0]))) {
-        /*affichertabMots(tabMots);
-        chercherCommande(tabMots[0]);
-        affichertabMots(tabMots);
-    */
-        known = false;
-    }
-    //chercherChemin(tabMots[1],monShell);
-
-    int status;
-    pid = CreerProcessus();
-    switch (pid)
+    else if (!strcmp(tabMots[0], "cd"))
     {
-        //Si on a une erreur irrémédiable (ENOMEM dans notre cas)
-        case -1:
-            perror("fork");
-        break;
-        //Si on est dans le fils
-        case 0:
-            // pipe ?
-            // redirection ?
-            if (in >= 0)
-                dup2(in,0);
-            if (out >= 0)
-                dup2(out,1);
-            ExecuterCommande(monShell,argc,tabMots);
-            if (in >= 0) close(in);
-            if (out >=0) close(out);
-            // printf("Never executed!\n");
-            exit(0);
-        break;
-        //  Si on est dans le père
-        default:
-            if (!strcmp(tabMots[argc-1],"&"))
-            {
-
-            }
-            else
-                waitpid(pid, &status, 0);
-            //printf("Son ended with status %d\n",status);
-        break;
+        CommandeCD(tabMots[1], monShell);
     }
+    else if (!strcmp(tabMots[0], "wait")) {
+        CommandeWait(tabMots[1]);
+    }
+    else {
+        if (in >= 0 || out >= 0) {
+            printf("attempting:\n");
+            if (in < 0) printf("in\tstdin\n"); else printf("in\t%d\n",in);
+            if (out < 0) printf("out\tstdout\n"); else printf("out\t%d\n",out);
+        }
 
-    if (in >= 0)
-        close(in);
-    if (out >= 0)
-        close(out);
+        // DETECT REDIRECTIONS
+
+        int rin = detect("<",tabMots,argc);
+        int rout= detect(">",tabMots,argc);
+        int inFile = -1;
+        int outFile = -1;
+
+        if (rin > 0) {
+            inFile = open(tabMots[rin+1],O_RDONLY);
+            if (inFile >= 0) {
+                printf("Should be reading from %s(%d)\n",tabMots[rin+1]);
+                if (in >= 0) close(in);
+                in = inFile;
+            }
+        }
+        if (rout > 0) {
+            outFile = open(tabMots[rout+1],O_WRONLY | O_CREAT, 0666);
+            if (outFile >= 0) {
+                printf("Should be writing in %s\n(%d)",tabMots[rout+1],outFile);
+                if (out >= 0) close(out);
+                out = outFile;
+            }
+        }
+        pid_t pid;
+        int known = true;
+        if (!contains('/',tabMots[0],strlen(tabMots[0])) && !contains('.',tabMots[0],strlen(tabMots[0]))) {
+            /*affichertabMots(tabMots);
+            chercherCommande(tabMots[0]);
+            affichertabMots(tabMots);
+        */
+            known = false;
+        }
+        //chercherChemin(tabMots[1],monShell);
+
+        int status;
+        pid = CreerProcessus();
+        switch (pid)
+        {
+            //Si on a une erreur irrémédiable (ENOMEM dans notre cas)
+            case -1:
+                perror("fork");
+            break;
+            //Si on est dans le fils
+            case 0:
+                // pipe ?
+                // redirection ?
+                if (in >= 0)
+                    dup2(in,0);
+                if (out >= 0)
+                    dup2(out,1);
+                ExecuterCommandeDansFils(monShell,argc,tabMots);
+                if (in >= 0) close(in);
+                if (out >=0) close(out);
+                // printf("Never executed!\n");
+                exit(0);
+            break;
+            //  Si on est dans le père
+            default:
+                if (!strcmp(tabMots[argc-1],"&"))
+                {
+
+                }
+                else
+                    waitpid(pid, &status, 0);
+                //printf("Son ended with status %d\n",status);
+            break;
+        }
+
+        if (in >= 0)
+            close(in);
+        if (out >= 0)
+            close(out);
+    }
 }
 
 
@@ -279,7 +259,7 @@ int detect(char* str, char** tabMots, int argc) {
     return -1;
 }
 
-void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
+void ExecuterCommandeDansFils(Minishell* monShell, int argc, char** tabMots) {
 
 	int known = true;
     if (!contains('/',tabMots[0],strlen(tabMots[0])) && !contains('.',tabMots[0],strlen(tabMots[0]))) {
@@ -290,16 +270,9 @@ void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
         known = false;
     }
 
-    if (!strcmp(tabMots[0], "exit")) {
-        exit(0);
-    }
-    else if (!strcmp(tabMots[0], "cd"))
+    if (!strcmp(tabMots[0], "history") || tabMots[0][0] == '!')
     {
-        CommandeCD(tabMots[1], monShell);
-    }
-    else if (!strcmp(tabMots[0], "history"))
-    {
-        CommandeHistory(monShell);
+        CommandeHistory(monShell,argc,tabMots);
     }
     else if (!strcmp(tabMots[0], "cat") && argc > 1)
     {
@@ -316,10 +289,7 @@ void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
             CommandeCP(tabMots[1],tabMots[2]);
     }
     else if (!strcmp(tabMots[0], "ps")) {
-        CommandePS();
-    }
-    else if (!strcmp(tabMots[0], "wait")) {
-        CommandeWait(tabMots[1]);
+        CommandePS(monShell);
     }
     else if (!strcmp(tabMots[0],"kill")) {
         if (argc > 1)
@@ -354,6 +324,7 @@ void ExecuterCommande(Minishell* monShell, int argc, char** tabMots) {
         char temp[LONGUEUR];
         strcpy(temp,tabMots[0]);
         chercherCommande(temp);
+        printf("RESULT:%s\n",temp);
         execv(temp,tabMots);
         printf("%s was not executed!\n",tabMots[0]);
     }
@@ -378,15 +349,15 @@ void InterpreterLigne(char* cmdline, Minishell* monShell) {
             pipe(pipes[idpipe]); // on ouvre le pipe actuel
             printf("newpipe : r=%d\tw=%d\n",pipes[idpipe][0],pipes[idpipe][1]);
             if (!idpipe) {
-                ExecuterCommandeDansFils(monShell,cmds[idpipe],-1,pipes[idpipe][PIPE_WRITE]);
+                ExecuterCommande(monShell,cmds[idpipe],-1,pipes[idpipe][PIPE_WRITE]);
                 close(pipes[idpipe][PIPE_WRITE]);
             }
             else
-                ExecuterCommandeDansFils(monShell,cmds[idpipe],pipes[idpipe-1][PIPE_READ],pipes[idpipe][PIPE_WRITE]);
+                ExecuterCommande(monShell,cmds[idpipe],pipes[idpipe-1][PIPE_READ],pipes[idpipe][PIPE_WRITE]);
             idpipe++;
         }
         if (idpipe < cmdc) {
-                ExecuterCommandeDansFils(monShell,cmds[idpipe],pipes[idpipe-1][PIPE_READ],-1);
+                ExecuterCommande(monShell,cmds[idpipe],pipes[idpipe-1][PIPE_READ],-1);
                 close(pipes[idpipe-1][PIPE_READ]);
         }
 
@@ -402,7 +373,7 @@ void InterpreterLigne(char* cmdline, Minishell* monShell) {
         free(cmds);
     }
     else {
-        ExecuterCommandeDansFils(monShell,cmdline,-1,-1);
+        ExecuterCommande(monShell,cmdline,-1,-1);
     }
 }
 
@@ -434,7 +405,8 @@ int main(void)
 
     chaine              = (char*) calloc(LONGUEUR,sizeof(char));
 	tabMots             = (char**)malloc(nombreMots*sizeof(char*));
-
+	monShell.pid = getpid();
+    printf("PID:%lu\n",monShell.pid);
     getcwd(monShell.repertoire,sizeof(monShell.repertoire));
     strcpy(monShell.historyPath, monShell.repertoire);
     strcat(monShell.historyPath, "/minishell.history");

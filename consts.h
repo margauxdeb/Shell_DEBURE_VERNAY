@@ -23,6 +23,7 @@ typedef struct minishell {
     Job     jobs[64];
     int     jobCounter;
     int     nbjobs;
+    pid_t pid;
 } Minishell;
 
 #endif

@@ -8,12 +8,12 @@ void CommandeCDx(char**,Minishell*);
 void CommandeTouch(char** args, char* repertoire);
 void CommandeCat(char* chaine);
 void CommandeWait(char* arg);
-void CommandePS();
+void CommandePS(Minishell*);
 void CommandeKill(char*,char*);
 void CommandeFG(Minishell*,char*);
 void CommandeBG(Minishell*,char*);
 void CommandeJobs(Minishell*);
-void CommandeHistory(Minishell* monShell);
+void CommandeHistory(Minishell* monShell,int, char**);
 int CommandeCP(const char* srcPath, const char* destPath);
 
 #endif // COMMANDS_H
