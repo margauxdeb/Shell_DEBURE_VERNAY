@@ -175,8 +175,8 @@ void removeElement(int ind, char** tab, int argc) {
 }
 
 int removeRedirections(char** args, int argc) {
-    printf("before:\n");
-    afficherArgs(args);
+    //printf("before:\n");
+    //afficherArgs(args);
 
     for (int i=0;i<argc;i++) {
         if (!strcmp(args[i],">") || !strcmp(args[i],"<")) {
@@ -191,8 +191,8 @@ int removeRedirections(char** args, int argc) {
         }
     }
 
-    printf("after:\n");
-    afficherArgs(args);
+//    printf("after:\n");
+//    afficherArgs(args);
     return argc;
 }
 
