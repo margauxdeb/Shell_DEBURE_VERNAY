@@ -119,7 +119,7 @@ int SaisirChaine(char *chaine, int longueur) {
         if (positionEntree != NULL)
             *positionEntree = '\0';
     }
-    return (verif);
+    return (verif) && strcmp(chaine,"");
 
 }
 
@@ -139,6 +139,15 @@ int DecouperChaine(char* chaine, char** tabMots, char* delimiteurs) {
 
 	return i;
 }
+
+int detect(char* str, char** tabMots, int argc) {
+    for (int i=0;i<argc;i++) {
+        if (!strcmp(str,tabMots[i]))
+            return i;
+    }
+    return -1;
+}
+
 void chercherCommande(char* cmd) {
     char* path = getenv("PATH");
     char** paths = calloc(32, sizeof(char*));
@@ -187,110 +196,7 @@ int removeRedirections(char** args, int argc) {
     return argc;
 }
 
-void ExecuterCommande(Minishell* monShell, char* cmdline, int in, int out) {
-    char** tabMots = malloc(64*sizeof(char*));
-    int argc = DecouperChaine(cmdline,tabMots," ");
-    if (!strcmp(tabMots[0], "exit")) {
-        exit(0);
-    }
-    else if (!strcmp(tabMots[0], "cd"))
-    {
-        CommandeCD(tabMots[1], monShell);
-    }
-    else if (!strcmp(tabMots[0], "wait")) {
-        CommandeWait(tabMots[1]);
-    }
-    else {
-        if (in >= 0 || out >= 0) {
-            printf("attempting:\n");
-            if (in < 0) printf("in\tstdin\n"); else printf("in\t%d\n",in);
-            if (out < 0) printf("out\tstdout\n"); else printf("out\t%d\n",out);
-        }
 
-        // DETECT REDIRECTIONS
-
-        int rin = detect("<",tabMots,argc);
-        int rout= detect(">",tabMots,argc);
-        int inFile = -1;
-        int outFile = -1;
-
-        if (rin > 0) {
-            inFile = open(tabMots[rin+1],O_RDONLY);
-            if (inFile >= 0) {
-                printf("Should be reading from %s(%d)\n",tabMots[rin+1]);
-                if (in >= 0) close(in);
-                in = inFile;
-            }
-        }
-        if (rout > 0) {
-            outFile = open(tabMots[rout+1],O_WRONLY | O_CREAT, 0666);
-            if (outFile >= 0) {
-                printf("Should be writing in %s\n(%d)",tabMots[rout+1],outFile);
-                if (out >= 0) close(out);
-                out = outFile;
-            }
-        }
-        if (in >= 0 || out >= 0) argc = removeRedirections(tabMots,argc);
-        pid_t pid;
-        int known = true;
-        if (!contains('/',tabMots[0],strlen(tabMots[0])) && !contains('.',tabMots[0],strlen(tabMots[0]))) {
-            /*affichertabMots(tabMots);
-            chercherCommande(tabMots[0]);
-            affichertabMots(tabMots);
-        */
-            known = false;
-        }
-        //chercherChemin(tabMots[1],monShell);
-
-        int status;
-        pid = CreerProcessus();
-        switch (pid)
-        {
-            //Si on a une erreur irrémédiable (ENOMEM dans notre cas)
-            case -1:
-                perror("fork");
-            break;
-            //Si on est dans le fils
-            case 0:
-                // pipe ?
-                // redirection ?
-                if (in >= 0)
-                    dup2(in,0);
-                if (out >= 0)
-                    dup2(out,1);
-                ExecuterCommandeDansFils(monShell,argc,tabMots);
-                if (in >= 0) close(in);
-                if (out >=0) close(out);
-                // printf("Never executed!\n");
-                exit(0);
-            break;
-            //  Si on est dans le père
-            default:
-                if (!strcmp(tabMots[argc-1],"&"))
-                {
-
-                }
-                else
-                    waitpid(pid, &status, 0);
-                //printf("Son ended with status %d\n",status);
-            break;
-        }
-
-        if (in >= 0)
-            close(in);
-        if (out >= 0)
-            close(out);
-    }
-}
-
-
-int detect(char* str, char** tabMots, int argc) {
-    for (int i=0;i<argc;i++) {
-        if (!strcmp(str,tabMots[i]))
-            return i;
-    }
-    return -1;
-}
 
 void ExecuterCommandeDansFils(Minishell* monShell, int argc, char** tabMots) {
 
@@ -357,6 +263,102 @@ void ExecuterCommandeDansFils(Minishell* monShell, int argc, char** tabMots) {
         //printf("RESULT:%s\n",temp);
         execv(temp,tabMots);
         printf("%s was not executed!\n",tabMots[0]);
+    }
+}
+
+void ExecuterCommande(Minishell* monShell, char* cmdline, int in, int out) {
+    char** tabMots = malloc(64*sizeof(char*));
+    int argc = DecouperChaine(cmdline,tabMots," ");
+    if (!strcmp(tabMots[0], "exit")) {
+        exit(0);
+    }
+    else if (!strcmp(tabMots[0], "cd"))
+    {
+        CommandeCD(tabMots[1], monShell);
+    }
+    else if (!strcmp(tabMots[0], "wait")) {
+        CommandeWait(tabMots[1]);
+    }
+    else {
+        if (in >= 0 || out >= 0) {
+            printf("attempting:\n");
+            if (in < 0) printf("in\tstdin\n"); else printf("in\t%d\n",in);
+            if (out < 0) printf("out\tstdout\n"); else printf("out\t%d\n",out);
+        }
+
+        // DETECT REDIRECTIONS
+
+        int rin = detect("<",tabMots,argc);
+        int rout= detect(">",tabMots,argc);
+        int inFile = -1;
+        int outFile = -1;
+
+        if (rin > 0) {
+            inFile = open(tabMots[rin+1],O_RDONLY);
+            if (inFile >= 0) {
+                printf("Should be reading from %s(%d)\n",tabMots[rin+1],inFile);
+                if (in >= 0) close(in);
+                in = inFile;
+            }
+        }
+        if (rout > 0) {
+            outFile = open(tabMots[rout+1],O_WRONLY | O_CREAT, 0666);
+            if (outFile >= 0) {
+                printf("Should be writing in %s(%d)\n",tabMots[rout+1],outFile);
+                if (out >= 0) close(out);
+                out = outFile;
+            }
+        }
+        if (in >= 0 || out >= 0) argc = removeRedirections(tabMots,argc);
+        pid_t pid;
+        int known = true;
+        if (!contains('/',tabMots[0],strlen(tabMots[0])) && !contains('.',tabMots[0],strlen(tabMots[0]))) {
+            /*affichertabMots(tabMots);
+            chercherCommande(tabMots[0]);
+            affichertabMots(tabMots);
+        */
+            known = false;
+        }
+        //chercherChemin(tabMots[1],monShell);
+
+        int status;
+        pid = CreerProcessus();
+        switch (pid)
+        {
+            //Si on a une erreur irrémédiable (ENOMEM dans notre cas)
+            case -1:
+                perror("fork");
+            break;
+            //Si on est dans le fils
+            case 0:
+                // pipe ?
+                // redirection ?
+                if (in >= 0)
+                    dup2(in,0);
+                if (out >= 0)
+                    dup2(out,1);
+                ExecuterCommandeDansFils(monShell,argc,tabMots);
+                if (in >= 0) close(in);
+                if (out >=0) close(out);
+                // printf("Never executed!\n");
+                exit(0);
+            break;
+            //  Si on est dans le père
+            default:
+                if (!strcmp(tabMots[argc-1],"&"))
+                {
+
+                }
+                else
+                    waitpid(pid, &status, 0);
+                //printf("Son ended with status %d\n",status);
+            break;
+        }
+
+        if (in >= 0)
+            close(in);
+        if (out >= 0)
+            close(out);
     }
 }
 
@@ -434,7 +436,11 @@ int main(void)
 
 	while (!feof(stdin))
 	{
-		printf("%s@%s:%s> ", nomUtilisateur, nomHote, monShell.repertoire);
+        char there[LONGUEUR];
+        strcpy(there,monShell.repertoire);
+        int dirc = DecouperChaine(there,tabMots,"/");
+        strcpy(there,tabMots[dirc-1]);
+		printf("%s@%s:%s> ", nomUtilisateur, nomHote, there);
 		//printf("> minishell > ");
 		if (SaisirChaine(chaine, LONGUEUR) && (!feof(stdin)))
 		{

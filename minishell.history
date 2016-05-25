@@ -1687,3 +1687,7 @@ cat < todo.md
 ls ../m	
 gedit & main.c
 geddit commands.c
+ls
+cat < todo.md > eor
+ls
+cat eor
