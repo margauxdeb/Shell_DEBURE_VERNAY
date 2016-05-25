@@ -5,7 +5,7 @@
 
 void CommandeCD(char* args, Minishell* monShell);
 void CommandeCDx(char**,Minishell*);
-void CommandeTouch(char** args, char* repertoire);
+void CommandeTouch(int argc, char** args, char* repertoire);
 void CommandeCat(int argc, char** args);
 void CommandeWait(char* arg);
 void CommandePS(Minishell*);

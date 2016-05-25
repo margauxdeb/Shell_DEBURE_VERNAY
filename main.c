@@ -218,7 +218,7 @@ void ExecuterCommandeDansFils(Minishell* monShell, int argc, char** tabMots) {
         CommandeCat(argc,tabMots);
     }
     else if (!strcmp(tabMots[0], "touch")) {
-        CommandeTouch(tabMots,monShell->repertoire);
+        CommandeTouch(argc, tabMots,monShell->repertoire);
     }
     else if (!strcmp(tabMots[0], "cp")) {
         if (argc > 2)

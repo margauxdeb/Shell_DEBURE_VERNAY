@@ -32,18 +32,15 @@ void CommandeCD(char* path, Minishell* monShell) {
     }
 }
 
-void CommandeTouch(int argc, char** args, char* repertoire) {
+void CommandeTouch(char** args, char* repertoire) {
     FILE* monFichier;
-    for (int i=0;i<argc;i++) {
-        if ( args[i][0] != '-' && (monFichier = fopen(args[i],"a")) != NULL) {
-            fclose(monFichier);
-        }
+    if ((monFichier = fopen(args[1],"a")) != NULL) {
+        fclose(monFichier);
     }
 }
 
 void CommandeCat(int argc, char** args) {
 	char caractere;
-    char tampon1, tampon2;
 	FILE* monFichier;
 	int count = 0;
 	if (argc) {
@@ -56,29 +53,16 @@ void CommandeCat(int argc, char** args) {
         for (int i=0;i<argc;i++) {
             if ( args[i][0] != '-' && (monFichier = fopen(args[i],"r")) != NULL)
             {
-                if (count)
+            /* Ce que je voudrais que tu fasses ; en gros, count prend la valeur 1
+                    si l'un des arguments est -n ;
+                    il faut donc afficher un nombre (count++) devant chaque nouvelle ligne
+                    peut se faire soit en repérant le caractère '\n' en utilisant fgetc
+                    Ou sinon tu peux utiliser fgets (lit une ligne entière, mais peut avoir un
+                    comportement différent et ne pas fonctionner
+                    */
+                while ((caractere = fgetc(monFichier)) != EOF)
                 {
-                    printf("%d ", count);
-                    count++;
-                }
-
-                tampon1 = fgetc(monFichier);
-                tampon2 = fgetc(monFichier);
-
-                while (tampon1 != EOF)
-                {
-                    caractere = fgetc(monFichier);
-
-                    printf("%c",tampon1);
-
-                    if (tampon1 == '\n' && count && (tampon2 != EOF))
-                    {
-                        printf("%d ", count);
-                        count++;
-                    }
-
-                    tampon1 = tampon2;
-                    tampon2 = caractere;
+                    printf("%c",caractere);
                 }
                 printf("\n");
                 fclose(monFichier);
@@ -130,6 +114,7 @@ void CommandeHistory(Minishell* monShell, int argc, char** args) {
     char buffer[LONGUEUR];
     int ind = 0;
     int execute = false;
+    if (1) {
         for (int j=0;j<argc;j++) {
             if (args[j][0] == '!') {
                 ind = atoi(&args[j][1]);
@@ -137,8 +122,9 @@ void CommandeHistory(Minishell* monShell, int argc, char** args) {
                 break;
             }
         }
-        if (!execute && argc > 1)
+        if (!execute)
             ind = atoi(args[1]);
+    }
 	FILE* monFichier;
 	int i = 0;
 	int all;
