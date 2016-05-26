@@ -66,7 +66,7 @@ void afficherArgs(char** tabMots) {
         }
         else
         while (tabMots[i] != NULL) {
-            printf("\n\t%d : %s",i,tabMots[i]);
+            printf("\n\t%d : %s(%d)",i,tabMots[i],strlen(tabMots[i]));
             i++;
         }
         printf("\n");
@@ -170,5 +170,76 @@ void chercherChemin(char* thispath, Minishell* monShell) {
     free(elems);
     strcpy(thispath,result);
     //printf("absolute_path=%s\n", path);
+}
+
+
+
+pid_t getppidlive(char* pid) {
+    char path[LONGUEUR];
+    sprintf(path,"/proc/%s/stat",pid);
+    FILE* there = fopen(path,"r");
+    if (there != NULL) {
+        fgets(path,1024,there);
+        char** tabs = calloc(64,sizeof(char*));
+        DecouperChaine(path,tabs," ");
+        pid_t ppid = atoi(tabs[3]);
+        free(tabs);
+        fclose(there);
+        return ppid;
+    }
+    return -1;
+}
+
+int detect(char* str, char** tabMots, int argc) {
+    for (int i=0;i<argc;i++) {
+        if (!strcmp(str,tabMots[i]))
+            return i;
+    }
+    return -1;
+}
+
+
+
+void chercherCommande(char* cmd) {
+    char* path = getenv("PATH");
+    char** paths = calloc(32, sizeof(char*));
+    int nbpaths = DecouperChaine(path,paths,":");
+    char temp[LONGUEUR];
+    for (int i=0;i<nbpaths;i++) {
+        strcpy(temp,paths[i]);
+        strcat(temp,"/");
+        strcat(temp,cmd);
+        if (fileExists(temp) || estRepertoire(temp)) {
+            strcpy(cmd,temp);
+            return;
+        }
+    }
+}
+
+void removeElement(int ind, char** tab, int argc) {
+    if (argc - ind > 0) {
+        for (int i=ind;i<argc-1;i++) {
+            strcpy(tab[i],
+            tab[i+1]);
+        }
+        tab[argc-1] = NULL;
+    }
+}
+
+int removeRedirections(char** args, int argc) {
+    for (int i=0;i<argc;i++) {
+        if (!strcmp(args[i],">") || !strcmp(args[i],"<")) {
+            removeElement(i,args,argc);
+            argc--;
+            if (i < argc) {
+                removeElement(i,args,argc);
+                argc--;
+                i--;
+            }
+            i--;
+        }
+    }
+
+    return argc;
 }
 

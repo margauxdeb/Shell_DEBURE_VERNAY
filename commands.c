@@ -17,6 +17,7 @@ void CommandeCD(char* path, Minishell* monShell) {
 
     if (path == NULL) {
         strcpy(monShell->repertoire,"/");
+        chdir(monShell->repertoire);
     }
     else {
         char temp[LONGUEUR];
@@ -172,7 +173,7 @@ void CommandeHistory(Minishell* monShell, int argc, char** args) {
         }
 		fclose(monFichier);
 	}
-    printf("ind=%d\n",ind);
+    //printf("ind=%d\n",ind);
 }
 
 int CommandeCP(const char* srcPath, const char* destPath) {

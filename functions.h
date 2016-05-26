@@ -1,7 +1,6 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 
-/* Fonctions à renommer, voire à réviser */
 void afficherArgs(char**);
 void showArgs(char**,int);
 int estRepertoire(char*);
@@ -17,5 +16,12 @@ int contains(char,char*,int);
 int containsOneOf(char*,int,char*,int);
 int fileExists(const char*);
 int isAPID(char*);
+
+pid_t getppidlive(char*);
+int detect(char* str, char** tabMots, int argc);
+
+void chercherCommande(char* cmd);
+void removeElement(int ind, char** tab, int argc);
+int removeRedirections(char** args, int argc);
 
 #endif

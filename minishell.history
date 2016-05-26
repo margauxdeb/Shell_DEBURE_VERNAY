@@ -4,3 +4,27 @@ ls
 history
 !1
 ls -o functions.h
+ls
+clear
+history
+ls | grep *.c
+ls | grep .c
+ls | grep .c
+cat < a | grep .c
+ls
+cat main.c | grep .c
+cat README.md | grep #
+whoami
+cat *
+ls
+ls | grep .c
+jobs
+ls
+whoami
+ls
+ls *.c
+man glob
+q
+exit
+ls
+ls | grep ^t
