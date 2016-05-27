@@ -93,6 +93,7 @@ void commandeCat(int argc, char** args) {
         }
         printf("\n");
 	}
+	printf("\n");
 }
 
 void commandeWait(char* arg) {

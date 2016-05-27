@@ -28,3 +28,7 @@ q
 exit
 ls
 ls | grep ^t
+ls
+git pull
+cat rapport.md
+cat -n rapport.md

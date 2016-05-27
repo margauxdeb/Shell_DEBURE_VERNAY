@@ -21,8 +21,6 @@
 #include "commands.h"
 #include "functions.h"
 
-int cpt = 0;
-
 /* s'execute au sein d'un processus issu d'un fork */
 void executerCommandeDansFils(Minishell* monShell, int argc, char** tabMots) {
 
@@ -80,7 +78,7 @@ void executerCommandeDansFils(Minishell* monShell, int argc, char** tabMots) {
         strcpy(temp,tabMots[0]);
         chercherCommande(temp);
         //printf("RESULT:%s\n",temp);
-        afficherArgs(tabMots);
+        //afficherArgs(tabMots);
         execv(temp,tabMots);
         //printf("%s was not executed!\n",temp);
     }
@@ -209,16 +207,11 @@ int main(void)
 	char *chaine;
 	char nomUtilisateur [LONGUEUR];
 	char nomHote        [LONGUEUR];
-	int nombreMots = 20;
 	char ** tabMots;
-	int boolExit = 0;
-
-	char delimiteurs[] = " ,:;";
-
     Minishell monShell = {};
 
     chaine              = (char*) calloc(LONGUEUR,sizeof(char));
-	tabMots             = (char**)malloc(nombreMots*sizeof(char*));
+	tabMots             = (char**)malloc(32*sizeof(char*));
 	monShell.pid = getpid();
     getcwd(monShell.repertoire,sizeof(monShell.repertoire));
     strcpy(monShell.historyPath, monShell.repertoire);
