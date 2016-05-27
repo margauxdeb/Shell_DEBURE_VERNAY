@@ -128,7 +128,7 @@ void chercherChemin(char* thispath, Minishell* monShell) {
     //for (int i=0;i<64;i++)
      //   elems[i] = malloc(LONGUEUR*sizeof(char));
     char delem[] = "/";
-    int nb = DecouperChaine(path,elems,delem);
+    int nb = decouperChaine(path,elems,delem);
     //showArgs(elems,nb);
     int prevnb = 0;
     for (int i=0;i<nb;i++) {
@@ -181,7 +181,7 @@ pid_t getppidlive(char* pid) {
     if (there != NULL) {
         fgets(path,1024,there);
         char** tabs = calloc(64,sizeof(char*));
-        DecouperChaine(path,tabs," ");
+        decouperChaine(path,tabs," ");
         pid_t ppid = atoi(tabs[3]);
         free(tabs);
         fclose(there);
@@ -203,7 +203,7 @@ int detect(char* str, char** tabMots, int argc) {
 void chercherCommande(char* cmd) {
     char* path = getenv("PATH");
     char** paths = calloc(32, sizeof(char*));
-    int nbpaths = DecouperChaine(path,paths,":");
+    int nbpaths = decouperChaine(path,paths,":");
     char temp[LONGUEUR];
     for (int i=0;i<nbpaths;i++) {
         strcpy(temp,paths[i]);
@@ -241,5 +241,98 @@ int removeRedirections(char** args, int argc) {
     }
 
     return argc;
+}
+
+
+
+
+/* La fonction create_process duplique le processus appelant et retourne
+ le PID du processus fils ainsi créé */
+pid_t creerProcessus() {
+    /* On crée une nouvelle valeur de type pid_t */
+    pid_t pid;
+
+    /* On fork() tant que l'erreur est EAGAIN */
+    do
+    {
+        pid = fork();
+    }
+    while ((pid == -1) && (errno == EAGAIN));
+
+    /* On retourne le PID du processus ainsi créé */
+    return pid;
+}
+
+void ajouterJob(Minishell* monShell) {
+    //TODO
+    monShell->nbjobs++;
+}
+
+Job* getJob(Minishell* monShell, int id) {
+    int i=0;
+    for (int j=0;i<monShell->nbjobs && j<64;j++) {
+        if (monShell->jobs[j].status && monShell->jobs[j].id == id) {
+            return &monShell->jobs[j];
+        }
+        else {
+            i++;
+        }
+    }
+    return NULL;
+}
+
+void supprimerJob(Minishell* monShell) {
+    if (monShell->nbjobs) {
+        //TODO
+        //TODO
+
+        //TODO TODO TODO, ...
+        monShell->nbjobs--;
+        if (!monShell->nbjobs) {
+            monShell->jobCounter = 0;
+        }
+    }
+}
+
+void insererHistorique(char* chaine, Minishell* monShell) {
+    if (chaine != NULL && strlen(chaine)) {
+        FILE* history = fopen(monShell->historyPath,"a");
+        if (history != NULL) {
+            fprintf(history,"%s\n",chaine);
+            fclose(history);
+        }
+    }
+}
+
+int saisirChaine(char *chaine, int longueur) {
+    int verif = 0;
+    char *positionEntree = NULL;
+
+    if (fgets(chaine, longueur, stdin) != NULL)
+    {
+        verif = 1;
+        positionEntree = strchr(chaine, '\n');
+        if (positionEntree != NULL)
+            *positionEntree = '\0';
+    }
+    return (verif) && strcmp(chaine,"");
+
+}
+
+int decouperChaine(char* chaine, char** tabMots, char* delimiteurs) {
+	char *token;
+	int i=0;
+
+	//Découper la chaîne selon les espaces
+	token = strtok (chaine,delimiteurs);
+
+	while (token != NULL)
+	{
+		tabMots[i]= token;
+		token = strtok (NULL, delimiteurs);
+		i++;
+	}
+
+	return i;
 }
 

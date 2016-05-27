@@ -13,7 +13,7 @@
 #include "commands.h"
 #include "functions.h"
 
-void CommandeCD(char* path, Minishell* monShell) {
+void commandeCD(char* path, Minishell* monShell) {
 
     if (path == NULL) {
         strcpy(monShell->repertoire,"/");
@@ -33,7 +33,7 @@ void CommandeCD(char* path, Minishell* monShell) {
     }
 }
 
-void CommandeTouch(int argc, char** args, char* repertoire) {
+void commandeTouch(int argc, char** args, char* repertoire) {
     FILE* monFichier;
     for (int i=0;i<argc;i++) {
         if ( args[i][0] != '-' && (monFichier = fopen(args[i],"a")) != NULL) {
@@ -42,7 +42,7 @@ void CommandeTouch(int argc, char** args, char* repertoire) {
     }
 }
 
-void CommandeCat(int argc, char** args) {
+void commandeCat(int argc, char** args) {
 	char caractere;
     char tampon1, tampon2;
 	FILE* monFichier;
@@ -95,12 +95,12 @@ void CommandeCat(int argc, char** args) {
 	}
 }
 
-void CommandeWait(char* arg) {
+void commandeWait(char* arg) {
     pid_t pid = atoi(arg);
     waitpid(pid,0,0);
 }
 
-void CommandePS(Minishell* monShell) {
+void commandePS(Minishell* monShell) {
     printf("WIP\n");
     int i = 0;
     DIR* proc = opendir("/proc");
@@ -127,7 +127,7 @@ void CommandePS(Minishell* monShell) {
     closedir(proc);
 }
 
-void CommandeHistory(Minishell* monShell, int argc, char** args) {
+void commandeHistory(Minishell* monShell, int argc, char** args) {
     char buffer[LONGUEUR];
     int ind = 0;
     int execute = false;
@@ -165,7 +165,7 @@ void CommandeHistory(Minishell* monShell, int argc, char** args) {
             {
                 if (i == ind) {
                     *setdernier(buffer) = 0;
-                    InterpreterLigne(buffer,monShell);
+                    interpreterLigne(buffer,monShell);
                     break;
                 }
                 i++;
@@ -176,7 +176,7 @@ void CommandeHistory(Minishell* monShell, int argc, char** args) {
     //printf("ind=%d\n",ind);
 }
 
-int CommandeCP(const char* srcPath, const char* destPath) {
+int commandeCP(const char* srcPath, const char* destPath) {
 
     char src_path[200];
     char dest_path[200];
@@ -228,7 +228,7 @@ int CommandeCP(const char* srcPath, const char* destPath) {
                         }
                         closedir(adir);
                         // RECURSIVE CALL
-                        CommandeCP(tmps,tmpd);
+                        commandeCP(tmps,tmpd);
                     }
                         content = readdir(dsrc);
                 }
@@ -291,7 +291,7 @@ int identifySignal(char* str) {
     }
 }
 
-void CommandeKill(char* str_sigh, char* str_pid) {
+void commandeKill(char* str_sigh, char* str_pid) {
     if (str_pid == NULL) {
         pid_t pid =atoi(str_sigh);
         kill(pid,SIGTERM);
@@ -313,19 +313,19 @@ void CommandeKill(char* str_sigh, char* str_pid) {
     }
 }
 
-void CommandeFG(Minishell* monShell, char* str) {
+void commandeFG(Minishell* monShell, char* str) {
     printf("WIP\n");
     int id = atoi(str);
-    Job* job = GetAFuckingJob(monShell,id);
+    Job* job = getJob(monShell,id);
     if (job != NULL) {
         kill(job->pid,SIGCONT);
     }
 }
 
-void CommandeBG(Minishell* monShell, char* str) {
+void commandeBG(Minishell* monShell, char* str) {
     printf("WIP\n");
     int id = atoi(str);
-    Job* job = GetAFuckingJob(monShell,id);
+    Job* job = getJob(monShell,id);
     if (job != NULL) {
         kill(job->pid,SIGSTOP);
     }
@@ -345,7 +345,7 @@ char* getStatus(int status) {
     }
 }
 
-void CommandeJobs(Minishell* monShell) {
+void commandeJobs(Minishell* monShell) {
     printf("WIP\n");
     int i=0;
      for (int j=0;i<monShell->nbjobs && j<64;j++) {

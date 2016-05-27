@@ -8,7 +8,6 @@
 #define PIPE_WRITE  1
 
 #define LONGUEUR 2048
-#define TAILLE_HISTORIQUE 100
 
 typedef struct job {
     char* cmdline;

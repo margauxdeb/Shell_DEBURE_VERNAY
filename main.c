@@ -2,9 +2,8 @@
 //  main.c
 //  MiniShell
 //
-//  Created by Margaux Debure on 30/03/2016.
-//  Copyright © 2016 Margaux Debure. All rights reserved.
-//
+
+// Functions are explained in associated header files.
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -24,139 +23,43 @@
 
 int cpt = 0;
 
-/* On stockera dans cette structure toutes les données relatives au Shell, pour les passer facilement
-aux diverses fonctions */
-
-
-
-/* La fonction create_process duplique le processus appelant et retourne
- le PID du processus fils ainsi créé */
-pid_t CreerProcessus() {
-    /* On crée une nouvelle valeur de type pid_t */
-    pid_t pid;
-
-    /* On fork() tant que l'erreur est EAGAIN */
-    do
-    {
-        pid = fork();
-    }
-    while ((pid == -1) && (errno == EAGAIN));
-
-    /* On retourne le PID du processus ainsi créé */
-    return pid;
-}
-
-void AjouterJob(Minishell* monShell) {
-    //TODO
-    monShell->nbjobs++;
-}
-
-Job* GetAFuckingJob(Minishell* monShell, int id) {
-    int i=0;
-    for (int j=0;i<monShell->nbjobs && j<64;j++) {
-        if (monShell->jobs[j].status && monShell->jobs[j].id == id) {
-            return &monShell->jobs[j];
-        }
-        else {
-            i++;
-        }
-    }
-    return NULL;
-}
-
-void SupprimerJob(Minishell* monShell) {
-    if (monShell->nbjobs) {
-        //TODO
-        //TODO
-
-        //TODO TODO TODO, ...
-        monShell->nbjobs--;
-        if (!monShell->nbjobs) {
-            monShell->jobCounter = 0;
-        }
-    }
-}
-
-void InsererHistorique(char* chaine, Minishell* monShell) {
-    if (chaine != NULL && strlen(chaine)) {
-        FILE* history = fopen(monShell->historyPath,"a");
-        if (history != NULL) {
-            fprintf(history,"%s\n",chaine);
-            fclose(history);
-        }
-    }
-}
-
-int SaisirChaine(char *chaine, int longueur) {
-    int verif = 0;
-    char *positionEntree = NULL;
-
-    if (fgets(chaine, longueur, stdin) != NULL)
-    {
-        verif = 1;
-        positionEntree = strchr(chaine, '\n');
-        if (positionEntree != NULL)
-            *positionEntree = '\0';
-    }
-    return (verif) && strcmp(chaine,"");
-
-}
-
-int DecouperChaine(char* chaine, char** tabMots, char* delimiteurs) {
-	char *token;
-	int i=0;
-
-	//Découper la chaîne selon les espaces
-	token = strtok (chaine,delimiteurs);
-
-	while (token != NULL)
-	{
-		tabMots[i]= token;
-		token = strtok (NULL, delimiteurs);
-		i++;
-	}
-
-	return i;
-}
-
-
-
-void ExecuterCommandeDansFils(Minishell* monShell, int argc, char** tabMots) {
+/* s'execute au sein d'un processus issu d'un fork */
+void executerCommandeDansFils(Minishell* monShell, int argc, char** tabMots) {
 
 	int known = (contains('/',tabMots[0],strlen(tabMots[0])));
 
     if (!strcmp(tabMots[0], "history") || tabMots[0][0] == '!')
     {
-        CommandeHistory(monShell,argc,tabMots);
+        commandeHistory(monShell,argc,tabMots);
     }
     else if (!strcmp(tabMots[0], "cat"))
     {
-        CommandeCat(argc,tabMots);
+        commandeCat(argc,tabMots);
     }
     else if (!strcmp(tabMots[0], "touch")) {
-        CommandeTouch(argc, tabMots,monShell->repertoire);
+        commandeTouch(argc, tabMots,monShell->repertoire);
     }
     else if (!strcmp(tabMots[0], "cp")) {
         if (argc > 2)
-            CommandeCP(tabMots[1],tabMots[2]);
+            commandeCP(tabMots[1],tabMots[2]);
     }
     else if (!strcmp(tabMots[0], "ps")) {
-        CommandePS(monShell);
+        commandePS(monShell);
     }
     else if (!strcmp(tabMots[0],"kill")) {
         if (argc > 1)
-            CommandeKill(tabMots[1],tabMots[2]);
+            commandeKill(tabMots[1],tabMots[2]);
     }
     else if (!strcmp(tabMots[0],"jobs")) {
-        CommandeJobs(monShell);
+        commandeJobs(monShell);
     }
     else if (!strcmp(tabMots[0],"fg")) {
         if (argc > 1)
-            CommandeFG(monShell, tabMots[1]);
+            commandeFG(monShell, tabMots[1]);
     }
     else if (!strcmp(tabMots[0],"bg")) {
         if (argc > 1)
-            CommandeBG(monShell, tabMots[1]);
+            commandeBG(monShell, tabMots[1]);
     }
     else if (!strcmp(tabMots[0],"pwd")) {
         printf("%s\n",monShell->repertoire);
@@ -183,18 +86,24 @@ void ExecuterCommandeDansFils(Minishell* monShell, int argc, char** tabMots) {
     }
 }
 
-void ExecuterCommande(Minishell* monShell, char* cmdline, int in, int out) {
+/* cree le processus fils, et redefinit stdin et stdout pour celui-ci */
+void executerCommande(Minishell* monShell, char* cmdline, int in, int out) {
     char** tabMots = malloc(64*sizeof(char*));
-    int argc = DecouperChaine(cmdline,tabMots," ");
+    int argc = decouperChaine(cmdline,tabMots," ");
+    int shouldiwait = strcmp(tabMots[argc-1],"&");
+    if (!shouldiwait) {
+        removeElement(argc-1,tabMots,argc);
+        argc--;
+    }
     if (!strcmp(tabMots[0], "exit")) {
         exit(0);
     }
     else if (!strcmp(tabMots[0], "cd"))
     {
-        CommandeCD(tabMots[1], monShell);
+        commandeCD(tabMots[1], monShell);
     }
     else if (!strcmp(tabMots[0], "wait")) {
-        CommandeWait(tabMots[1]);
+        commandeWait(tabMots[1]);
     }
     else {
         /*if (in >= 0 || out >= 0) {
@@ -228,7 +137,7 @@ void ExecuterCommande(Minishell* monShell, char* cmdline, int in, int out) {
         }
         if (in >= 0 || out >= 0) argc = removeRedirections(tabMots,argc);
         int status;
-        pid_t pid = CreerProcessus();
+        pid_t pid = creerProcessus();
         switch (pid)
         {
             case -1:
@@ -239,17 +148,13 @@ void ExecuterCommande(Minishell* monShell, char* cmdline, int in, int out) {
                     dup2(in,0);
                 if (out >= 0)
                     dup2(out,1);
-                ExecuterCommandeDansFils(monShell,argc,tabMots);
+                executerCommandeDansFils(monShell,argc,tabMots);
                 if (in >= 0) close(in);
                 if (out >=0) close(out);
                 exit(0);
             break;
             default:
-                if (!strcmp(tabMots[argc-1],"&"))
-                {
-
-                }
-                else
+                if (shouldiwait)
                     waitpid(pid, &status, 0);
             break;
         }
@@ -261,7 +166,8 @@ void ExecuterCommande(Minishell* monShell, char* cmdline, int in, int out) {
     }
 }
 
-void InterpreterLigne(char* cmdline, Minishell* monShell) {
+/* lit la ligne de commande et determine l'usage de pipes */
+void interpreterLigne(char* cmdline, Minishell* monShell) {
     char delim[] = "|";
     int havepipe = false;
     if (containsOneOf(delim,1,cmdline,strlen(cmdline))) {
@@ -271,31 +177,31 @@ void InterpreterLigne(char* cmdline, Minishell* monShell) {
         char** cmds = malloc(20*sizeof(char*));
         int nbpipes = contains('|',cmdline,strlen(cmdline));
         int idpipe = 0;
-        int cmdc = DecouperChaine(cmdline,cmds,delim);
+        int cmdc = decouperChaine(cmdline,cmds,delim);
         if (cmdc <= nbpipes) {
             nbpipes = cmdc - 1;
         }
         int pipes[nbpipes][2];
         while (idpipe < nbpipes) {
             pipe(pipes[idpipe]); // on ouvre le pipe actuel
-            printf("newpipe : r=%d\tw=%d\n",pipes[idpipe][0],pipes[idpipe][1]);
+            //printf("newpipe : r=%d\tw=%d\n",pipes[idpipe][0],pipes[idpipe][1]);
             if (!idpipe) {
-                ExecuterCommande(monShell,cmds[idpipe],-1,pipes[idpipe][PIPE_WRITE]);
+                executerCommande(monShell,cmds[idpipe],-1,pipes[idpipe][PIPE_WRITE]);
                 close(pipes[idpipe][PIPE_WRITE]);
             }
             else
-                ExecuterCommande(monShell,cmds[idpipe],pipes[idpipe-1][PIPE_READ],pipes[idpipe][PIPE_WRITE]);
+                executerCommande(monShell,cmds[idpipe],pipes[idpipe-1][PIPE_READ],pipes[idpipe][PIPE_WRITE]);
             idpipe++;
         }
         if (idpipe < cmdc) {
-                ExecuterCommande(monShell,cmds[idpipe],pipes[idpipe-1][PIPE_READ],-1);
+                executerCommande(monShell,cmds[idpipe],pipes[idpipe-1][PIPE_READ],-1);
                 close(pipes[idpipe-1][PIPE_READ]);
         }
 
         free(cmds);
     }
     else {
-        ExecuterCommande(monShell,cmdline,-1,-1);
+        executerCommande(monShell,cmdline,-1,-1);
     }
 }
 int main(void)
@@ -324,13 +230,13 @@ int main(void)
 	{
         char there[LONGUEUR];
         strcpy(there,monShell.repertoire);
-        int dirc = DecouperChaine(there,tabMots,"/");
+        int dirc = decouperChaine(there,tabMots,"/");
         if (dirc) strcpy(there,tabMots[dirc-1]);
 		printf("%s@%s:%s> ", nomUtilisateur, nomHote, there);
-		if (SaisirChaine(chaine, LONGUEUR) && (!feof(stdin)))
+		if (saisirChaine(chaine, LONGUEUR) && (!feof(stdin)))
 		{
-            InsererHistorique(chaine, &monShell);
-            InterpreterLigne( chaine, &monShell);
+            insererHistorique(chaine, &monShell);
+            interpreterLigne( chaine, &monShell);
 		}
 	}
 
